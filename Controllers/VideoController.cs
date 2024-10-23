@@ -41,29 +41,13 @@ namespace VideoProjektAspApi.Controllers
         private async Task<IActionResult> StreamVideo(Video video)
         {
             string fullPath = Path.Combine("video", $"{video.Path}{video.Extension}");
-            FileInfo fileInfo = new FileInfo(fullPath); // A fájl információi
-            long fileSize = fileInfo.Length;
 
             string range = Request.Headers.Range.ToString(); // A kért tartalom
             // Ha van range, akkor az alapján ad vissza
             if (!string.IsNullOrEmpty(range))
             {
-                // "bytes=kezdopont-vegpont" => [kezdopont, vegpont]
-                string[] parst = range.Replace("bytes=", "").Trim().Split('-'); 
-                long start = long.Parse(parst[0]);
-                // Azért kell a Min, hogy ne lépjük tűl a fájl hoszzát
-
-                long end = Math.Min(start + ChunkSize - 1, fileSize - 1); ;
-
-                long contentLength = end - start + 1;
                 FileStream fileStream = new FileStream(fullPath, FileMode.Open,
                     FileAccess.Read, FileShare.Read);
-
-                // A response header megírása
-                Response.Headers.Add("Content-Range", $"bytes {start}-{end}/{fileSize}");
-                Response.Headers.Add("Accept-Ranges", "bytes");
-                Response.Headers.Add("Content-Length", contentLength.ToString());
-                Response.ContentType = "video/mp4";
 
                 return File(fileStream, "video/mp4", enableRangeProcessing: true);
             }
@@ -75,6 +59,25 @@ namespace VideoProjektAspApi.Controllers
                 return File(fileStream, "video/mp4"); // Visszaadott fájl + MIME típus
             }
 
+        }
+
+        // A videók betöltése
+        [HttpGet]
+        public async Task<IActionResult> GetVideos()
+        {
+            List<Video> videos = await _context.Videos.ToListAsync();
+            if (videos == null)
+                return NotFound();
+            return Ok(videos);
+        }
+        [Route("thumbnail/{name}")]
+        [HttpGet]
+        public async Task<IActionResult> GetThumbnailImage(string name)
+        {
+            string fullPath = Path.Combine("video/thumbnail", $"{name}.png");
+            FileStream fileStream = new FileStream(fullPath, FileMode.Open,
+                   FileAccess.Read, FileShare.Read);
+            return File(fileStream, "image/png");
         }
     }
 }

@@ -1,12 +1,15 @@
 import React from "react";
+import ReactPlayer from "react-player/lazy";
 
 const VideoPlayer = ({ src }) => {
   return (
-    <video
+    <ReactPlayer
       style={{ width: "500px", height: "500px" }}
-      controls
-      src={src}
-    ></video>
+      controls={true}
+      url={src}
+      pip={true}
+      stopOnUnmount={false}
+    />
   );
 };
 

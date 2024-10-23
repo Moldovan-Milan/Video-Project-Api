@@ -13,6 +13,9 @@ namespace VideoProjektAspApi.Model
         [Required]
         public string Path { get; set; }
 
+        [Column("title")]
+        public string Title { get; set; }
+
         [Column("extension")]
         [Required]
         public string Extension { get; set; }
@@ -20,5 +23,11 @@ namespace VideoProjektAspApi.Model
         [Column("created")]
         [Required]
         public DateTime Created { get; set; }
+
+        [Column("duration")]
+        public int Duration { get; set; } // A videó hossza másodpercben
+
+        [Column("thumbnail_path")]
+        public string ThumbnailPath { get; set; }
     }
 }

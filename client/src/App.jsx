@@ -1,10 +1,12 @@
 import "./App.css";
 import VideoPlayer from "./components/VideoPlayer";
+import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+import VideosPage from "./pages/VideosPage";
 
 function App() {
   return (
     <>
-      <VideoPlayer src={"http://localhost:5047/api/video/6"} />
+      <VideosPage />
     </>
   );
 }

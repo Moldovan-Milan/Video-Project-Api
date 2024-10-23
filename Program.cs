@@ -23,7 +23,7 @@ namespace VideoProjektAspApi
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
-                    builder => builder.WithOrigins("*")
+                    builder => builder.WithOrigins("http://localhost:5173")
                                       .AllowAnyMethod()
                                       .AllowAnyHeader());
             });
