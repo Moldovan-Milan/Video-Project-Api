@@ -17,7 +17,8 @@ const VideosPage = () => {
   console.log(data);
 
   return (
-    <div>
+    <div className="row">
+      <h1 className="text-center">Videók</h1>
       {data.map((video, id) => (
         <VideoItem key={id} video={video} />
       ))}

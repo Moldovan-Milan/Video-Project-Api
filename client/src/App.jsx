@@ -1,13 +1,17 @@
 import "./App.css";
-import VideoPlayer from "./components/VideoPlayer";
 import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
 import VideosPage from "./pages/VideosPage";
+import SingleVideo from "./pages/SingleVideo";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 function App() {
   return (
-    <>
-      <VideosPage />
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route index path="/" Component={VideosPage} />
+        <Route path="/video/:id" Component={SingleVideo} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

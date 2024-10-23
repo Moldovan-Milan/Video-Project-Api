@@ -61,15 +61,27 @@ namespace VideoProjektAspApi.Controllers
 
         }
 
-        // A videók betöltése
+        // A videók adatainak betöltése
         [HttpGet]
-        public async Task<IActionResult> GetVideos()
+        public async Task<IActionResult> GetVideosData()
         {
             List<Video> videos = await _context.Videos.ToListAsync();
             if (videos == null)
                 return NotFound();
             return Ok(videos);
         }
+
+        // Egy videó adatainak betöltése
+        [Route("data/{id}")]
+        [HttpGet]
+        public async Task<IActionResult> GetVideoData(int id)
+        {
+            Video video = await _context.Videos.FirstOrDefaultAsync(x => x.Id == id);
+            if (video == null) 
+                return NotFound();
+            return Ok(video);
+        }
+
         [Route("thumbnail/{name}")]
         [HttpGet]
         public async Task<IActionResult> GetThumbnailImage(string name)
