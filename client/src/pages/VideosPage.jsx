@@ -2,6 +2,7 @@ import React from "react";
 import { useQuery } from "react-query";
 import axios from "axios";
 import VideoItem from "../components/VideoItem";
+import { Link } from "react-router-dom";
 
 const fetchVideos = async () => {
   const { data } = await axios.get("https://localhost:7124/api/video");
@@ -18,6 +19,9 @@ const VideosPage = () => {
 
   return (
     <div className="row">
+      <Link className="text-center btn btn-primary" to="/video/upload">
+        Videó feltöltése
+      </Link>
       <h1 className="text-center">Videók</h1>
       {data.map((video, id) => (
         <VideoItem key={id} video={video} />

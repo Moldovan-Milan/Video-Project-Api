@@ -20,7 +20,7 @@ const VideoItem = ({ video }) => {
   };
 
   return (
-    <div className="col-md-4">
+    <div className="col-md-4 video-item">
       <Link to={`/video/${id}`}>
         <h4>{title}</h4>
         <img

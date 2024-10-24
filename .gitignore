@@ -16,6 +16,7 @@ dist-ssr
 bin/
 obj/
 video/
+temp/
 Migrations/
 
 # Editor directories and files
