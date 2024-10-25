@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VideoProjektAspApi.Model
 {
-    [Table("video")]
+    [Table("videos")]
     public class Video
     {
         [Key]
@@ -25,7 +25,7 @@ namespace VideoProjektAspApi.Model
         public DateTime Created { get; set; }
 
         [Column("duration")]
-        public int Duration { get; set; } // A videó hossza másodpercben
+        public TimeSpan Duration { get; set; }
 
         [Column("thumbnail_path")]
         public string ThumbnailPath { get; set; }

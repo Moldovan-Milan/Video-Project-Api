@@ -1,11 +1,9 @@
-﻿using MediaToolkit.Model;
-using MediaToolkit;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using VideoProjektAspApi.Data;
 using VideoProjektAspApi.Model;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion.Internal;
+using WMPLib;
 
 namespace VideoProjektAspApi.Controllers
 {
@@ -17,6 +15,8 @@ namespace VideoProjektAspApi.Controllers
         private readonly IMemoryCache _cache;
         // Ide menti az ideiglenes videó chunkokat a feltöltés során
         private readonly string _tempPath = Path.Combine("temp");
+
+        private readonly string _videoPath = Path.Combine("video");
 
         public VideoController(AppDbContext context, IMemoryCache cache)
         {
@@ -43,23 +43,23 @@ namespace VideoProjektAspApi.Controllers
         // A videó streamelés logikája
         private async Task<IActionResult> StreamVideo(Video video)
         {
-            string fullPath = Path.Combine("video", $"{video.Path}{video.Extension}");
+            string fullPath = Path.Combine(_videoPath, $"{video.Path}.{video.Extension}");
 
             string range = Request.Headers.Range.ToString(); // A kért tartalom
-            // Ha van range, akkor az alapján ad vissza
+            // Ha van range, akkor az felbontva ad vissza
             if (!string.IsNullOrEmpty(range))
             {
                 FileStream fileStream = new FileStream(fullPath, FileMode.Open,
                     FileAccess.Read, FileShare.Read);
 
-                return File(fileStream, "video/mp4", enableRangeProcessing: true);
+                return File(fileStream, $"video/{video.Extension}", enableRangeProcessing: true);
             }
             // Ha nincs, akkor az egész videót elküldi
             else
             {
                 FileStream fileStream = new FileStream(fullPath, FileMode.Open,
                     FileAccess.Read, FileShare.Read);
-                return File(fileStream, "video/mp4"); // Visszaadott fájl + MIME típus
+                return File(fileStream, $"video/{video.Extension}"); // Visszaadott fájl + MIME típus
             }
 
         }
@@ -96,6 +96,7 @@ namespace VideoProjektAspApi.Controllers
             return File(fileStream, "image/png");
         }
 
+        #region UPLOAD VIDEO
         [Route("upload")]
         [HttpPost]
         // A chunkokat ideiglenesen elmenti a temp mappába
@@ -118,64 +119,90 @@ namespace VideoProjektAspApi.Controllers
 
         [Route("assemble")]
         [HttpPost]
-        // Összeállítja a fájlt
+        // Összeállítja a videó fájlt
         public async Task<IActionResult> AssembleFile([FromForm] string fileName, 
-            [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title)
+            [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title,
+            [FromForm] string extension)
         {
-            var finalPath = Path.Combine("video", fileName);
-            // fileName: video.mp4 => [video, mp4]
-            string[] videoNameAndExtiension = fileName.Split('.');
+            // Egyedi név adása a videónak és az indexképnek
+            string uniqueFileName = GenerateUniqueFileName();
+            var finalPath = Path.Combine(_videoPath, $"{uniqueFileName}.{extension}");
 
+            await AssembleChunksToFile(finalPath, fileName, totalChunks);
+            SaveThumbnail(image, uniqueFileName);
+
+            TimeSpan duration = GetVideoDuration(finalPath);
+            await SaveVideoToDatabase(uniqueFileName, duration, extension, title);
+
+            return Created();
+        }
+
+        // Chunkok összeállítása a videó fájlba
+        private async Task AssembleChunksToFile(string finalPath, string fileName, int totalChunks)
+        {
             using (var finalStream = new FileStream(finalPath, FileMode.Create))
             {
-                // Végigmegy az összes chunkon
                 for (int i = 0; i < totalChunks; i++)
                 {
                     var chunkPath = Path.Combine(_tempPath, $"{fileName}.part{i}");
-                    // Megnyitja a chunkot
                     using (var chunkStream = new FileStream(chunkPath, FileMode.Open))
                     {
-                        chunkStream.CopyTo(finalStream); // Átmásolja a chunk tartalmát
+                        await chunkStream.CopyToAsync(finalStream);
                     }
                     System.IO.File.Delete(chunkPath);
                 }
             }
+        }
 
-            // Indexkép lementése
+        private void SaveThumbnail(IFormFile image, string uniqueFileName)
+        {
             if (image != null && image.Length > 0)
             {
-                var imagePath = Path.Combine("video/thumbnail/", image.FileName);
+                var imagePath = Path.Combine("video/thumbnail/", $"{uniqueFileName}.png");
                 using (var stream = new FileStream(imagePath, FileMode.Create))
                 {
-                    await image.CopyToAsync(stream);
+                    image.CopyTo(stream);
                 }
             }
+        }
 
-            // Még hibát dob ki, a fájl nem található 
-           // Videó hosszának lekérdezése
-           //var inputFile = new MediaFile { Filename = finalPath };
-           // using (var engine = new Engine())
-           // {
-           //     engine.GetMetadata(inputFile);
-           // }
+        // Egyedi fájlnév generálása a videónak és az indexképnek
+        private string GenerateUniqueFileName()
+        {
+            string uniqueFileName;
+            do
+            {
+                uniqueFileName = Guid.NewGuid().ToString();
+            } while (_context.Videos.Any(x => x.Path == uniqueFileName));
+            return uniqueFileName;
+        }
 
-           // var duration = inputFile.Metadata.Duration.TotalSeconds;
+        private TimeSpan GetVideoDuration(string finalPath)
+        {
+            WindowsMediaPlayer wmp = new WindowsMediaPlayer();
+            IWMPMedia mediaInfo = wmp.newMedia(finalPath);
+            return TimeSpan.FromSeconds(mediaInfo.duration);
+        }
 
-            // Videó mentése az adatbázisba
+        private async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title)
+        {
             Video video = new Video
             {
-                Path = videoNameAndExtiension[0],
+                Path = uniqueFileName,
                 Created = DateTime.Now,
-                Duration = 200, // Még nem megy
-                Extension = $".{videoNameAndExtiension[1]}",
-                ThumbnailPath = image.FileName.Split('.')[0], // image.png => image
+                Duration = duration,
+                Extension = videoExtension.Split(".")[0],
+                ThumbnailPath = uniqueFileName,
                 Title = title
             };
 
             await _context.Videos.AddAsync(video);
             await _context.SaveChangesAsync();
-
-            return Created();
         }
+        #endregion
+
+        // Elmenti az indexképet jpg formátumba
+        // TODO: Megcsinálni a jpeg konvertálást
+        private bool ConvertThumbnailToJpg(IFormFile image) => throw new NotImplementedException();
     }
 }
