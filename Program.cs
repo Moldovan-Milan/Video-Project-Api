@@ -1,5 +1,6 @@
 
 using VideoProjektAspApi.Data;
+using VideoProjektAspApi.Services;
 
 namespace VideoProjektAspApi
 {
@@ -19,6 +20,10 @@ namespace VideoProjektAspApi
 
             // Db connection
             builder.Services.AddDbContext<AppDbContext>();
+
+            // Custom services
+            builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();
+            builder.Services.AddTransient<IVideoStreamService, VideoStreamService>();
 
             builder.Services.AddCors(options =>
             {
