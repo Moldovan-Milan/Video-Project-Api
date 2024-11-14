@@ -26,6 +26,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.10">
       <PrivateAssets>all</PrivateAssets>
@@ -37,6 +40,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="images\avatars\" />
     <Folder Include="temp\" />
     <Folder Include="video\" />
     <Folder Include="video\thumbnail\" />

@@ -1,6 +1,4 @@
-﻿
-
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VideoProjektAspApi.Data;
 using VideoProjektAspApi.Model;
@@ -10,90 +8,61 @@ namespace VideoProjektAspApi.Services
 {
     public class VideoUploadService : IVideoUploadService
     {
-        public string VideoPath { get; private set; }
-        public AppDbContext Context { get; private set; }
-        public string TempPath { get; private set; }
+        private readonly AppDbContext _context;
+        private readonly IFileManagerService _fileManagerService;
 
-        public VideoUploadService(AppDbContext context)
+        public VideoUploadService(AppDbContext context, IFileManagerService fileManagerService)
         {
-            Context = context;
-            VideoPath = Path.Combine("video");
-            TempPath = Path.Combine("temp");
+            _context = context;
+            _fileManagerService = fileManagerService;
         }
 
+        /// <summary>
+        /// Uploads a video chunk and saves it to the temporary storage.
+        /// </summary>
+        /// <param name="chunk">The video chunk to be uploaded.</param>
+        /// <param name="fileName">The name of the file.</param>
+        /// <param name="chunkNumber">The chunk number.</param>
         public async Task UploadChunk(IFormFile chunk, string fileName, int chunkNumber)
         {
-            var chunkPath = Path.Combine(TempPath, $"{fileName}.part{chunkNumber}");
-            using (FileStream stream = new FileStream(chunkPath, FileMode.Create))
-            {
-                await chunk.CopyToAsync(stream); // Átmásolja a chunk tartalmát a fájlba.
-            }
+            var chunkPath = Path.Combine("temp", $"{fileName}.part{chunkNumber}");
+            await _fileManagerService.SaveVideoChunk(chunkPath, chunk, chunkNumber);
         }
 
-        public async Task AssembleFile(string fileName, IFormFile image, int totalChunks, string title, string extension)
+        /// <summary>
+        /// Assembles the video chunks into a single file and saves the video and its metadata to the database.
+        /// </summary>
+        /// <param name="fileName">The name of the file.</param>
+        /// <param name="image">The thumbnail image.</param>
+        /// <param name="totalChunks">The total number of chunks.</param>
+        /// <param name="title">The title of the video.</param>
+        /// <param name="extension">The file extension of the video.</param>
+        /// <param name="userId">The ID of the user who uploaded the video.</param>
+        public async Task AssembleFile(string fileName, IFormFile image, int totalChunks, string title, string extension, string userId)
         {
-            // Egyedi név adása a videónak és az indexképnek
-            string uniqueFileName = GenerateUniqueFileName();
-            var finalPath = Path.Combine(VideoPath, $"{uniqueFileName}.{extension}");
+            // Generate a unique name for the video and thumbnail
+            string uniqueFileName = _fileManagerService.GenerateFileName();
+            var finalPath = Path.Combine("video", $"{uniqueFileName}.{extension}");
 
-            await AssembleChunksToFile(finalPath, fileName, totalChunks);
-            SaveThumbnail(image, uniqueFileName);
+            await _fileManagerService.AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
+            _fileManagerService.SaveImage(Path.Combine("video/thumbnail/", $"{uniqueFileName}.{extension}"), image);
+            await SaveImageToDatabase(uniqueFileName, extension);
 
-            TimeSpan duration = GetVideoDuration(finalPath);
-            await SaveVideoToDatabase(uniqueFileName, duration, extension, title);
+            TimeSpan duration = _fileManagerService.GetVideoDuration(finalPath);
+            await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
         }
 
-        public async Task AssembleChunksToFile(string finalPath, string fileName, int totalChunks)
-        {
-            using (var finalStream = new FileStream(finalPath, FileMode.Create))
-            {
-                for (int i = 0; i < totalChunks; i++)
-                {
-                    var chunkPath = Path.Combine(TempPath, $"{fileName}.part{i}");
-                    using (var chunkStream = new FileStream(chunkPath, FileMode.Open))
-                    {
-                        await chunkStream.CopyToAsync(finalStream);
-                    }
-                    System.IO.File.Delete(chunkPath);
-                }
-            }
-        }
+        
 
-        public bool ConvertThumbnailToJpg(IFormFile image)
-        {
-            throw new NotImplementedException();
-        }
-
-        public string GenerateUniqueFileName()
-        {
-            string uniqueFileName;
-            do
-            {
-                uniqueFileName = Guid.NewGuid().ToString();
-            } while (Context.Videos.Any(x => x.Path == uniqueFileName));
-            return uniqueFileName;
-        }
-
-        public TimeSpan GetVideoDuration(string finalPath)
-        {
-            WindowsMediaPlayer wmp = new WindowsMediaPlayer();
-            IWMPMedia mediaInfo = wmp.newMedia(finalPath);
-            return TimeSpan.FromSeconds(mediaInfo.duration);
-        }
-
-        public void SaveThumbnail(IFormFile image, string uniqueFileName)
-        {
-            if (image != null && image.Length > 0)
-            {
-                var imagePath = Path.Combine("video/thumbnail/", $"{uniqueFileName}.png");
-                using (var stream = new FileStream(imagePath, FileMode.Create))
-                {
-                    image.CopyTo(stream);
-                }
-            }
-        }
-
-        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title)
+        /// <summary>
+        /// Saves the video metadata to the database.
+        /// </summary>
+        /// <param name="uniqueFileName">The unique file name of the video.</param>
+        /// <param name="duration">The duration of the video.</param>
+        /// <param name="videoExtension">The file extension of the video.</param>
+        /// <param name="title">The title of the video.</param>
+        /// <param name="userId">The ID of the user who uploaded the video.</param>
+        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId)
         {
             Video video = new Video
             {
@@ -101,12 +70,28 @@ namespace VideoProjektAspApi.Services
                 Created = DateTime.Now,
                 Duration = duration,
                 Extension = videoExtension,
-                ThumbnailPath = uniqueFileName,
-                Title = title
+                Title = title,
+                Dislikes = 0,
+                Likes = 0,
+                Status = "none",
+                Description = "Teszt",
+                ThumbnailId = _context.Images.FirstOrDefault(i => i.Path == uniqueFileName).Id,
+                UserId = userId
             };
 
-            await Context.Videos.AddAsync(video);
-            await Context.SaveChangesAsync();
+            await _context.Videos.AddAsync(video);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task SaveImageToDatabase(string fileName, string extension)
+        {
+            Image image = new Image
+            {
+                Path = fileName,
+                Extension = extension
+            };
+            await _context.Images.AddAsync(image);
+            await _context.SaveChangesAsync();
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using VideoProjektAspApi.Data;
 using VideoProjektAspApi.Model;
 
@@ -6,41 +7,54 @@ namespace VideoProjektAspApi.Services
 {
     public class VideoStreamService : IVideoStreamService
     {
-        public AppDbContext Context { get;  private set; }
+        private readonly AppDbContext _context;
+        private readonly IFileManagerService _fileManagerService;
+        private readonly IMapper _mapper;
 
-        public string VideoPath { get; private set; }
-
-        public VideoStreamService(AppDbContext context) 
-        { 
-            Context = context;
-            VideoPath = Path.Combine("video");
+        public VideoStreamService(AppDbContext context, IFileManagerService fileManagerService, IMapper mapper)
+        {
+            _context = context;
+            _fileManagerService = fileManagerService;
+            _mapper = mapper;
         }
 
         public async Task<List<Video>> GetAllVideosData()
         {
-            return await Context.Videos.ToListAsync(); ;
+            return await _context.Videos.ToListAsync();
         }
 
-        public FileStream GetThumbnailImage(string name)
+        public async Task<FileStream> GetThumbnailImage(int id)
         {
-            string fullPath = Path.Combine("video/thumbnail", $"{name}.png");
-            FileStream fileStream = new FileStream(fullPath, FileMode.Open,
-                   FileAccess.Read, FileShare.Read);
-            return fileStream;
+            Image image = await _context.Images.FirstOrDefaultAsync(i => i.Id == id);
+            if (image == null)
+                return null;
+
+            string fullPath = Path.Combine("video/thumbnail", $"{image.Path}.{image.Extension}");
+            return _fileManagerService.GetFileStream(fullPath);
         }
 
         public async Task<Video> GetVideoData(int id)
         {
-            return await Context.Videos.FirstOrDefaultAsync(v => v.Id == id);
+            var video = await _context.Videos.Include(v => v.User).ThenInclude(u => u.Avatar).FirstOrDefaultAsync(v => v.Id == id); 
+            if (video != null) 
+            { 
+                UserDto userDto = _mapper.Map<UserDto>(video.User);
+                User user = new User
+                {
+                    UserName = userDto.UserName,
+                    Avatar = userDto.Avatar,
+                    Followers = userDto.Followers
+                };
+                video.User = user;
+            }
+            return video;
+
         }
 
         public FileStream StreamVideo(Video video)
         {
-            string fullPath = Path.Combine(VideoPath, $"{video.Path}.{video.Extension}");
-                FileStream fileStream = new FileStream(fullPath, FileMode.Open,
-                    FileAccess.Read, FileShare.Read);
-
-            return fileStream;
+            string fullPath = Path.Combine("video", $"{video.Path}.{video.Extension}");
+            return _fileManagerService.GetFileStream(fullPath);
         }
     }
 }

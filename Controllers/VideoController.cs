@@ -1,9 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using VideoProjektAspApi.Data;
-using VideoProjektAspApi.Model;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using VideoProjektAspApi.Services;
-using WMPLib;
 
 namespace VideoProjektAspApi.Controllers
 {
@@ -11,72 +8,76 @@ namespace VideoProjektAspApi.Controllers
     [ApiController]
     public class VideoController : ControllerBase
     {
-        private readonly AppDbContext _context;
-
-        // Services
         private readonly IVideoUploadService _videoUploadService;
         private readonly IVideoStreamService _videoStreamService;
 
-        public VideoController(AppDbContext context,
-            IVideoUploadService videoUploadService, IVideoStreamService videoStreamService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService)
         {
-            _context = context;
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
         }
 
-        // GET: /api/video/id
+        /// <summary>
+        /// Gets the video by its ID and streams it.
+        /// </summary>
+        /// <param name="id">The ID of the video.</param>
+        /// <returns>The video stream or a 404 Not Found response if the video does not exist.</returns>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetVideo(int id)
         {
-            Video video = await _videoStreamService.GetVideoData(id);
+            var video = await _videoStreamService.GetVideoData(id);
             if (video == null)
                 return NotFound();
 
-            FileStream videoStream = _videoStreamService.StreamVideo(video);
-            string range = Request.Headers.Range;
-            if (string.IsNullOrEmpty(range))
-                return File(videoStream, $"video/{video.Extension}"); // A teljes videó visszaadása
-
-
-            return File(videoStream, $"video/{video.Extension}", enableRangeProcessing: true);
+            var videoStream = _videoStreamService.StreamVideo(video);
+            return CreateVideoStreamResponse(videoStream, video.Extension);
         }
-     
 
-        // A videók adatainak betöltése
+        /// <summary>
+        /// Gets all video data.
+        /// </summary>
+        /// <returns>A list of all videos or a 404 Not Found response if no videos exist.</returns>
         [HttpGet]
         public async Task<IActionResult> GetVideosData()
         {
-            List<Video> videos = await _videoStreamService.GetAllVideosData();
-            
+            var videos = await _videoStreamService.GetAllVideosData();
             return videos == null ? NotFound() : Ok(videos);
         }
 
-        // Egy videó adatainak betöltése
-        [Route("data/{id}")]
-        [HttpGet]
+        /// <summary>
+        /// Gets the video data by its ID.
+        /// </summary>
+        /// <param name="id">The ID of the video.</param>
+        /// <returns>The video data or a 404 Not Found response if the video does not exist.</returns>
+        [HttpGet("data/{id}")]
         public async Task<IActionResult> GetVideoData(int id)
         {
-            Video video = await _context.Videos.FirstOrDefaultAsync(x => x.Id == id);
-
+            var video = await _videoStreamService.GetVideoData(id);
             return video == null ? NotFound() : Ok(video);
         }
 
-        [Route("thumbnail/{name}")]
-        [HttpGet]
-        // Az indexképet küldi vissza
-        public async Task<IActionResult> GetThumbnailImage(string name)
+        /// <summary>
+        /// Gets the thumbnail image for a video by its ID.
+        /// </summary>
+        /// <param name="imageId">The ID of the image.</param>
+        /// <returns>The thumbnail image stream or a 404 Not Found response if the image does not exist.</returns>
+        [HttpGet("thumbnail/{imageId}")]
+        public async Task<IActionResult> GetThumbnailImage(int imageId)
         {
-            FileStream imageStream = _videoStreamService.GetThumbnailImage(name);
-
-            return imageStream == null ? NotFound() : File(imageStream, "image/png");
+            var imageStream = await _videoStreamService.GetThumbnailImage(imageId);
+            return imageStream == null ? NotFound() : File(imageStream, $"image/{imageStream.Name.Split('.').Last()}");
         }
 
-        [Route("upload")]
-        [HttpPost]
-        // A chunkokat ideiglenesen elmenti a temp mappába
-        public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, 
-            [FromForm] string fileName, [FromForm] int chunkNumber)
+        /// <summary>
+        /// Uploads a video chunk.
+        /// </summary>
+        /// <param name="chunk">The video chunk to be uploaded.</param>
+        /// <param name="fileName">The name of the file.</param>
+        /// <param name="chunkNumber">The chunk number.</param>
+        /// <returns>A 201 Created response if the chunk is uploaded successfully.</returns>
+        [Authorize]
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
             if (chunk == null || chunk.Length == 0)
                 return BadRequest("No chunk uploaded.");
@@ -85,15 +86,36 @@ namespace VideoProjektAspApi.Controllers
             return Created();
         }
 
-        [Route("assemble")]
-        [HttpPost]
-        // Összeállítja a videó fájlt
-        public async Task<IActionResult> AssembleFile([FromForm] string fileName, 
-            [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title,
-            [FromForm] string extension)
+        /// <summary>
+        /// Assembles the video chunks into a single file.
+        /// </summary>
+        /// <param name="fileName">The name of the file.</param>
+        /// <param name="image">The thumbnail image.</param>
+        /// <param name="totalChunks">The total number of chunks.</param>
+        /// <param name="title">The title of the video.</param>
+        /// <param name="extension">The file extension of the video.</param>
+        /// <param name="userId">The ID of the user who uploaded the video.</param>
+        /// <returns>A 201 Created response if the video is assembled successfully.</returns>
+        [Authorize]
+        [HttpPost("assemble")]
+        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension, [FromForm] string userId)
         {
-            await _videoUploadService.AssembleFile(fileName, image, totalChunks, title, extension);
+            await _videoUploadService.AssembleFile(fileName, image, totalChunks, title, extension, userId);
             return Created();
+        }
+
+        /// <summary>
+        /// Creates a video stream response with range processing if requested.
+        /// </summary>
+        /// <param name="videoStream">The video stream.</param>
+        /// <param name="extension">The file extension of the video.</param>
+        /// <returns>The video stream response.</returns>
+        private IActionResult CreateVideoStreamResponse(FileStream videoStream, string extension)
+        {
+            string range = Request.Headers.Range;
+            return string.IsNullOrEmpty(range)
+                ? File(videoStream, $"video/{extension}")
+                : File(videoStream, $"video/{extension}", enableRangeProcessing: true);
         }
     }
 }

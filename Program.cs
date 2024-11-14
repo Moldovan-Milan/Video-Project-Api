@@ -1,5 +1,9 @@
-
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 using VideoProjektAspApi.Data;
+using VideoProjektAspApi.Model;
 using VideoProjektAspApi.Services;
 
 namespace VideoProjektAspApi
@@ -21,16 +25,50 @@ namespace VideoProjektAspApi
             // Db connection
             builder.Services.AddDbContext<AppDbContext>();
 
+            // Identity
+            builder.Services.AddIdentity<User, IdentityRole>()
+                .AddEntityFrameworkStores<AppDbContext>()
+                .AddDefaultTokenProviders();
+
+            // Authentication
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                    ValidAudience = builder.Configuration["Jwt:Issuer"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                };
+            });
+
+            // Add AutoMapper
+            builder.Services.AddAutoMapper(typeof(MappingProfile));
+
             // Custom services
             builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();
             builder.Services.AddTransient<IVideoStreamService, VideoStreamService>();
+            builder.Services.AddTransient<IFileManagerService, FileManagerService>();
+            builder.Services.AddTransient<IUserManagerService, UserManagerService>();
 
+
+            // CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
                     builder => builder.WithOrigins("http://localhost:5173")
                                       .AllowAnyMethod()
-                                      .AllowAnyHeader());
+                                      .AllowAnyMethod()
+                                      .WithHeaders("Authorization", "Content-Type", "Content-Range") // Authorization header-t engedélyezi
+                                      .AllowCredentials()); 
             });
 
             var app = builder.Build();
@@ -43,10 +81,10 @@ namespace VideoProjektAspApi
             //}
 
             app.UseHttpsRedirection();
-
-            app.UseAuthorization();
-
+            app.UseRouting();
             app.UseCors("AllowSpecificOrigin");
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             app.MapControllers();
 
