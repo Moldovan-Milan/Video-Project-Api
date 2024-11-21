@@ -12,6 +12,7 @@ dist-ssr
 video/
 temp/
 Migrations/
+images/
 
 # Editor directories and files
 .vs/

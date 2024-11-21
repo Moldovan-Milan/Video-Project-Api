@@ -45,8 +45,8 @@ namespace VideoProjektAspApi.Services
             var finalPath = Path.Combine("video", $"{uniqueFileName}.{extension}");
 
             await _fileManagerService.AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
-            _fileManagerService.SaveImage(Path.Combine("video/thumbnail/", $"{uniqueFileName}.{extension}"), image);
-            await SaveImageToDatabase(uniqueFileName, extension);
+            _fileManagerService.SaveImage(Path.Combine("video/thumbnail/", $"{uniqueFileName}.png"), image);
+            await SaveImageToDatabase(uniqueFileName, "png");
 
             TimeSpan duration = _fileManagerService.GetVideoDuration(finalPath);
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);

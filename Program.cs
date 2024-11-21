@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 using VideoProjektAspApi.Data;
 using VideoProjektAspApi.Model;
@@ -19,11 +22,37 @@ namespace VideoProjektAspApi
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            //builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(c =>
+            {
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "VideoProjektAspApi", Version = "v1" });
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    In = ParameterLocation.Header,
+                    Description = "Please enter into field the word 'Bearer' followed by a space and the JWT value",
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+                c.AddSecurityRequirement(new OpenApiSecurityRequirement {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    new string[] { }
+                }});
+            });
+
             builder.Services.AddMemoryCache();
 
             // Db connection
-            builder.Services.AddDbContext<AppDbContext>();
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddDbContext<AppDbContext>(options =>
+                options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
             // Identity
             builder.Services.AddIdentity<User, IdentityRole>()
@@ -50,15 +79,11 @@ namespace VideoProjektAspApi
                 };
             });
 
-            // Add AutoMapper
-            builder.Services.AddAutoMapper(typeof(MappingProfile));
-
             // Custom services
             builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();
             builder.Services.AddTransient<IVideoStreamService, VideoStreamService>();
             builder.Services.AddTransient<IFileManagerService, FileManagerService>();
             builder.Services.AddTransient<IUserManagerService, UserManagerService>();
-
 
             // CORS
             builder.Services.AddCors(options =>
@@ -68,17 +93,20 @@ namespace VideoProjektAspApi
                                       .AllowAnyMethod()
                                       .AllowAnyMethod()
                                       .WithHeaders("Authorization", "Content-Type", "Content-Range") // Authorization header-t engedélyezi
-                                      .AllowCredentials()); 
+                                      .AllowCredentials());
             });
 
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
-            //if (app.Environment.IsDevelopment())
-            //{
-            //    //app.UseSwagger();
-            //    //app.UseSwaggerUI();
-            //}
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "VideoProjektAspApi v1");
+                });
+            }
 
             app.UseHttpsRedirection();
             app.UseRouting();

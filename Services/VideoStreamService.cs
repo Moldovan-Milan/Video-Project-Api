@@ -1,5 +1,4 @@
-﻿using AutoMapper;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using VideoProjektAspApi.Data;
 using VideoProjektAspApi.Model;
 
@@ -9,13 +8,11 @@ namespace VideoProjektAspApi.Services
     {
         private readonly AppDbContext _context;
         private readonly IFileManagerService _fileManagerService;
-        private readonly IMapper _mapper;
 
-        public VideoStreamService(AppDbContext context, IFileManagerService fileManagerService, IMapper mapper)
+        public VideoStreamService(AppDbContext context, IFileManagerService fileManagerService)
         {
             _context = context;
             _fileManagerService = fileManagerService;
-            _mapper = mapper;
         }
 
         public async Task<List<Video>> GetAllVideosData()
@@ -38,12 +35,11 @@ namespace VideoProjektAspApi.Services
             var video = await _context.Videos.Include(v => v.User).ThenInclude(u => u.Avatar).FirstOrDefaultAsync(v => v.Id == id); 
             if (video != null) 
             { 
-                UserDto userDto = _mapper.Map<UserDto>(video.User);
                 User user = new User
                 {
-                    UserName = userDto.UserName,
-                    Avatar = userDto.Avatar,
-                    Followers = userDto.Followers
+                    UserName = video.User.UserName,
+                    Avatar = video.User.Avatar,
+                    Followers = video.User.Followers
                 };
                 video.User = user;
             }

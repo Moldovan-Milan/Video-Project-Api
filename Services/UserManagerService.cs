@@ -118,6 +118,7 @@ namespace VideoProjektAspApi.Services
         private async Task CreateAvatar(string fileName, IFormFile image)
         {
             string imagePath = Path.Combine("images/avatars/", $"{fileName}.png");
+            _FileManagerService.SaveImage(imagePath, image);
 
             await _context.Images.AddAsync(new Image
             {
