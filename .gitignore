@@ -27,4 +27,6 @@ obj/
 
 
 *.sw?
+
+# Security
 appsettings.json
