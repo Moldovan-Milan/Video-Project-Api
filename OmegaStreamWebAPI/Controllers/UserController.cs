@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Services.UserServices;
+using OmegaStreamServices.Models;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -46,6 +48,20 @@ namespace OmegaStreamWebAPI.Controllers
         {
             await _userManagerService.LogoutUser();
             return Ok();
+        }
+
+        [Route("profile/{id}")]
+        [HttpGet]
+        //[Authorize]
+        public async Task<IActionResult> Profile(string id)
+        {
+            User user = await _userManagerService.GetUserById(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            user.PasswordHash = String.Empty;
+            return Ok(user);
         }
     }
 }

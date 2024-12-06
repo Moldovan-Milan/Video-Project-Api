@@ -42,15 +42,24 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             // Generate a unique name for the video and thumbnail
             string uniqueFileName = _fileManagerService.GenerateFileName();
-            var finalPath = Path.Combine("video", $"{uniqueFileName}.{extension}");
 
+            _fileManagerService.CreateDirectory($"temp/{uniqueFileName}");
+            var finalPath = Path.Combine($"temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
+
+            
             await _fileManagerService.AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
-            _fileManagerService.SaveImage(Path.Combine("video/thumbnail/", $"{uniqueFileName}.png"), image);
+            await _fileManagerService.SaveImage(Path.Combine("images/thumbnail/", $"{uniqueFileName}.png"), image);
             await SaveImageToDatabase(uniqueFileName, "png");
+
+            // Convert mp4 into m3u8
+            _fileManagerService.SplitMP4ToM3U8(finalPath, uniqueFileName, $"temp/{uniqueFileName}", 20);
+            
 
             TimeSpan duration = _fileManagerService.GetVideoDuration(finalPath);
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
         }
+
+        
 
 
 

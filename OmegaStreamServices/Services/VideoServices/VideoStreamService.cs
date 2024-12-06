@@ -16,7 +16,6 @@ namespace OmegaStreamServices.Services.VideoServices
     public class VideoStreamService : IVideoStreamService
     {
         private readonly AppDbContext _context;
-
         // Paraméterei az R2 Object Storage-nak
         private readonly string _accessKey;
         private readonly string _secretKey;

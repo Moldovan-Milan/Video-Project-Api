@@ -97,7 +97,8 @@ namespace OmegaStreamServices.Services.UserServices
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim("id", user.Id.ToString())
+                new Claim("id", user.Id.ToString()),
+                new Claim("imageId", user.AvatarId.ToString())
             };
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -127,6 +128,11 @@ namespace OmegaStreamServices.Services.UserServices
                 Extension = "png"
             });
             await _context.SaveChangesAsync();
+        }
+
+        public Task<User> GetUserById(string id)
+        {
+            return _context.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == id)!;
         }
     }
 }
