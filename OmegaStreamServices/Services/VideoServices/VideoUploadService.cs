@@ -48,11 +48,11 @@ namespace OmegaStreamServices.Services.VideoServices
 
             
             await _fileManagerService.AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
-            await _fileManagerService.SaveImage(Path.Combine("images/thumbnail/", $"{uniqueFileName}.png"), image);
+            await _fileManagerService.SaveImage(Path.Combine("images/thumbnails/", $"{uniqueFileName}.png"), image);
             await SaveImageToDatabase(uniqueFileName, "png");
 
             // Convert mp4 into m3u8
-            _fileManagerService.SplitMP4ToM3U8(finalPath, uniqueFileName, $"temp/{uniqueFileName}", 20);
+            _fileManagerService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 20);
             
 
             TimeSpan duration = _fileManagerService.GetVideoDuration(finalPath);

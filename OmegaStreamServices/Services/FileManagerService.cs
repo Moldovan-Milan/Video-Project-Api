@@ -37,7 +37,7 @@ namespace OmegaStreamServices.Services
             {
                 ServiceURL = _serviceUrl,
                 ForcePathStyle = true,
-
+                
             };
         }
 
@@ -182,8 +182,8 @@ namespace OmegaStreamServices.Services
 
                 process.WaitForExit();
                 var lines = ReadAndChange($"{workingDirectory}/{outputName}.m3u8");
-                WriteM3U8File(lines, $"{outputName}.m3u8");
-                await UploadVideoToR2($"{workingDirectory}/{outputName}");
+                WriteM3U8File(lines, $"{workingDirectory}/{outputName}.m3u8");
+                await UploadVideoToR2($"{outputName}");
             }
             
         }
@@ -198,7 +198,7 @@ namespace OmegaStreamServices.Services
                 string line = streamReader.ReadLine();
                 if (line.Contains(".ts"))
                 {
-                    string changedLine = $"/semgments/{line}";
+                    string changedLine = $"/api/video/segments/{line}";
                     result.Add(changedLine);
                 }
                 else
@@ -206,6 +206,7 @@ namespace OmegaStreamServices.Services
                     result.Add(line);
                 }
             }
+            streamReader.Close();
 
             return result;
         }
@@ -221,7 +222,41 @@ namespace OmegaStreamServices.Services
 
         public async Task UploadVideoToR2(string folderName)
         {
-            var files = Directory.GetFiles(folderName, "*.*", SearchOption.AllDirectories);
+            AmazonS3Client client = new AmazonS3Client(_credentials, _awsConfig);
+            // egy tömböt ad vissza, amiben benne van minden fájl elérési útvonala, amit a mappa tartalmaz
+            string[] files = Directory.GetFiles($"temp/{folderName}", "*.*", SearchOption.AllDirectories);
+            foreach (string file in files) 
+            {
+                // Kiveszi a fájl nevét
+                string key = $"videos/{folderName}/{file.Split("\\").Last()}";
+                if (key.Contains(".ts") || key.Contains(".m3u8"))
+                {
+                    var fileContent = File.ReadAllBytes(file);
+                    using var memoryStream = new MemoryStream(fileContent);
+                    var putRequest = new PutObjectRequest
+                    {
+                        BucketName = "omega-stream",
+                        Key = key,
+                        InputStream = memoryStream,
+                        DisablePayloadSigning = true
+                    };
+                    try
+                    {
+                        var response = await client.PutObjectAsync(putRequest);
+                        Console.WriteLine($"Feltöltés sikeres: {key}");
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Hiba történt a(z) {key} feltöltésekor: {ex.Message}");
+                    }
+                }
+                // Az mp4 már nem kell
+                else if (file.Contains(".mp4"))
+                {
+                    File.Delete(file);
+                }
+            }
         }
     }
 }

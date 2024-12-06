@@ -10,12 +10,12 @@ namespace OmegaStreamWebAPI.Controllers
     public class VideoController : ControllerBase
     {
         private readonly IVideoUploadService _videoUploadService;
-        private readonly IVideoStreamService _videoStreamService2;
+        private readonly IVideoStreamService _videoStreamService;
 
         public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, IVideoStreamService videoStreamService2)
         {
             _videoUploadService = videoUploadService;
-            _videoStreamService2 = videoStreamService2;
+            _videoStreamService = videoStreamService2;
         }
 
         /// <summary>
@@ -26,7 +26,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetVideo(int id)
         {
-            var video = await _videoStreamService2.GetVideoMetaData(id);
+            var video = await _videoStreamService.GetVideoMetaData(id);
             if (video == null)
                 return NotFound();
 
@@ -35,7 +35,7 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 // Videó adatfolyam lekérése a service segítségével
-                var (videoStream, contentType) = await _videoStreamService2.GetVideoStreamAsync(videoKey);
+                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey);
 
                 // Stream átadása a kliensnek
                 return File(videoStream, contentType, enableRangeProcessing: true);
@@ -56,7 +56,7 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 // Videó szegmens adatfolyam lekérése a service segítségével
-                var (segmentStream, contentType) = await _videoStreamService2.GetVideoSegmentAsync(segmentKey);
+                var (segmentStream, contentType) = await _videoStreamService.GetVideoSegmentAsync(segmentKey);
 
                 // Szegmens stream átadása a kliensnek
                 return File(segmentStream, contentType, enableRangeProcessing: true);
@@ -79,7 +79,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet]
         public async Task<IActionResult> GetVideosData()
         {
-            var videos = await _videoStreamService2.GetAllVideosMetaData();
+            var videos = await _videoStreamService.GetAllVideosMetaData();
             return videos == null ? NotFound() : Ok(videos);
         }
 
@@ -91,8 +91,19 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet("data/{id}")]
         public async Task<IActionResult> GetVideoData(int id)
         {
-            var video = await _videoStreamService2.GetVideoMetaData(id);
-            return video == null ? NotFound() : Ok(video);
+            try
+            {
+                var video = await _videoStreamService.GetVideoMetaData(id);
+                return video == null ? NotFound() : Ok(video);
+            }
+            catch(AmazonS3Exception ex)
+            {
+                return NotFound(new { message = $"Hiba történt: ${ex.Message}" });
+            }
+            catch(Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>
@@ -103,9 +114,20 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet("thumbnail/{imageId}")]
         public async Task<IActionResult> GetThumbnailImage(int imageId)
         {
-            //var imageStream = await _videoStreamService.GetThumbnailImage(imageId);
-            (Stream imageStream, string contentType) = await _videoStreamService2.GetImageStreamAsync(imageId);
-            return imageStream == null ? NotFound() : File(imageStream, contentType);
+            try
+            {
+                (Stream imageStream, string contentType) = await _videoStreamService.GetImageStreamAsync(imageId);
+                return File(imageStream, contentType);
+            }
+            catch (AmazonS3Exception ex)
+            {
+                return NotFound(new { message = $"Error: ${ex.Message}" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = $"Error {ex.Message}" });
+            }
+            
         }
 
         /// <summary>

@@ -49,9 +49,9 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             AmazonS3Client _awsClient = new AmazonS3Client(_credentials, _awsConfig);
             // Kép elérési útvonalának megkeresése
-            Image image = await _context.Images.FirstOrDefaultAsync(x => x.Id == imageId);
+            Image image = await _context.Images.FirstOrDefaultAsync(x => x.Id == imageId)!;
 
-
+            
             var request = new GetObjectRequest
             {
                 BucketName = _bucketName,
@@ -80,6 +80,7 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             AmazonS3Client _awsClient = new AmazonS3Client(_credentials, _awsConfig);
             var path = videoKey.Split(".").First();
+            
             var request = new GetObjectRequest
             {
                 BucketName = _bucketName,
@@ -117,7 +118,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
         public async Task<Video> GetVideoMetaData(int id)
         {
-            var video = await _context.Videos.Include(v => v.User).ThenInclude(u => u.Avatar).FirstOrDefaultAsync(v => v.Id == id);
+            var video = await _context.Videos.Include(x => x.User).FirstOrDefaultAsync(v => v.Id == id);
             if (video != null)
             {
                 User user = new User
@@ -128,7 +129,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 };
                 video.User = user;
             }
-            return video;
+            return video!;
         }
         #endregion
     }
