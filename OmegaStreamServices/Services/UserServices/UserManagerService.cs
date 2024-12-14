@@ -7,9 +7,11 @@ using System.Text;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using Microsoft.Extensions.Configuration;
+using OmegaStreamServices.Services.Repositories;
 
 namespace OmegaStreamServices.Services.UserServices
 {
+    // Dependecies for the service
     public class UserManagerService : IUserManagerService
     {
         private readonly UserManager<User> _userManager;
@@ -18,16 +20,21 @@ namespace OmegaStreamServices.Services.UserServices
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IFileManagerService _FileManagerService;
+        private readonly IImageRepository _imageRepository;
+        private readonly ICloudService _cloudServices;
 
-        public UserManagerService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher, AppDbContext context, SignInManager<User> signInManager, IConfiguration configuration, IFileManagerService fileManagerService)
+        public UserManagerService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher, SignInManager<User> signInManager, AppDbContext context, IConfiguration configuration, IFileManagerService fileManagerService, IImageRepository imageRepository, ICloudService cloudServices)
         {
             _userManager = userManager;
             _passwordHasher = passwordHasher;
-            _context = context;
             _signInManager = signInManager;
+            _context = context;
             _configuration = configuration;
             _FileManagerService = fileManagerService;
+            _imageRepository = imageRepository;
+            _cloudServices = cloudServices;
         }
+
 
         /// <summary>
         /// Registers a new user with the provided details.
@@ -38,24 +45,30 @@ namespace OmegaStreamServices.Services.UserServices
         /// <param name="avatar">The avatar image of the new user.</param>
         /// <returns>An IdentityResult indicating the success or failure of the registration.</returns>
         public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
-        {
-            if (await _userManager.Users.FirstOrDefaultAsync(u => u.Email == email) != null)
+{
+            if (await IsEmailTaken(email))
                 return IdentityResult.Failed(new IdentityError { Description = "Email already exists." });
 
             string uniqueFileName = _FileManagerService.GenerateFileName();
             await CreateAvatar(uniqueFileName, avatar);
 
-            User user = new User
+            Image image = await _imageRepository.FindImageByPath(uniqueFileName);
+            var user = new User
             {
                 UserName = username,
                 Email = email,
-                AvatarId = _context.Images.FirstOrDefault(i => i.Path == uniqueFileName).Id,
-                Created = DateTime.Now,
-                Followers = 0
+                AvatarId = image.Id,
+                Created = DateTime.UtcNow,
+                Followers = 0,
             };
             user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
             return await _userManager.CreateAsync(user);
+        }
+
+        private async Task<bool> IsEmailTaken(string email)
+        {
+            return await _userManager.Users.AnyAsync(u => u.Email == email);
         }
 
         /// <summary>
@@ -95,12 +108,12 @@ namespace OmegaStreamServices.Services.UserServices
         {
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, user.UserName),
+                new Claim(JwtRegisteredClaimNames.Sub, user.UserName!),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim("id", user.Id.ToString()),
                 new Claim("imageId", user.AvatarId.ToString())
             };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
                 issuer: _configuration["Jwt:Issuer"],
@@ -117,22 +130,33 @@ namespace OmegaStreamServices.Services.UserServices
         /// </summary>
         /// <param name="fileName">The unique file name for the avatar image.</param>
         /// <param name="image">The avatar image file.</param>
+
         private async Task CreateAvatar(string fileName, Stream image)
         {
-            string imagePath = Path.Combine("images/avatars/", $"{fileName}.png");
-            _FileManagerService.SaveImage(imagePath, image);
+            await SaveAvatarToCloud(fileName, image);
+            await SaveAvatarMetadata(fileName);
+        }
 
-            await _context.Images.AddAsync(new Image
+        private async Task SaveAvatarToCloud(string fileName, Stream imageStream)
+        {
+            string imagePath = Path.Combine("images/avatars/", $"{fileName}.png");
+            await _cloudServices.UploadToR2(imagePath, imageStream);
+        }
+
+        private async Task SaveAvatarMetadata(string fileName)
+        {
+            var imageEntity = new Image
             {
                 Path = fileName,
                 Extension = "png"
-            });
-            await _context.SaveChangesAsync();
+            };
+            await _imageRepository.Add(imageEntity);
         }
 
         public Task<User> GetUserById(string id)
         {
-            return _context.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == id)!;
+            
+            return _userManager.FindByIdAsync(id)!;
         }
     }
 }

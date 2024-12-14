@@ -10,6 +10,9 @@ using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.VideoServices;
 using OmegaStreamServices.Services.UserServices;
+using Microsoft.Extensions.Configuration;
+using System.Runtime;
+using OmegaStreamServices.Services.Repositories;
 
 namespace OmegaStreamWebAPI
 {
@@ -81,11 +84,20 @@ namespace OmegaStreamWebAPI
                 };
             });
 
+            // Repositories
+            builder.Services.AddTransient<IVideoRepository, VideoRepository>();
+            builder.Services.AddTransient<IImageRepository, ImageRepository>();
+
             // Custom services
             builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();
             builder.Services.AddTransient<IFileManagerService, FileManagerService>();
             builder.Services.AddTransient<IUserManagerService, UserManagerService>();
             builder.Services.AddTransient<IVideoStreamService, VideoStreamService>();
+            builder.Services.AddTransient<ICloudService, CloudService>();
+            builder.Services.AddTransient<IVideoProccessingService, VideoProccessingService>();
+
+            // R2 settings
+            builder.Services.Configure<R2Settings>(builder.Configuration.GetSection("R2"));
 
             // CORS
             builder.Services.AddCors(options =>

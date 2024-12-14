@@ -1,20 +1,29 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Amazon.Runtime.Internal.Util;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services.Repositories;
 using WMPLib;
 
 namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoUploadService : IVideoUploadService
     {
-        private readonly AppDbContext _context;
-        private readonly IFileManagerService _fileManagerService;
 
-        public VideoUploadService(AppDbContext context, IFileManagerService fileManagerService)
+        private readonly IVideoRepository _videoRepository;
+        private readonly IImageRepository _imageRepository;
+        private readonly IFileManagerService _fileManagerService;
+        private readonly ICloudService _cloudServices;
+        private readonly IVideoProccessingService _videoProccessingService;
+
+        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, IFileManagerService fileManagerService, ICloudService cloudServices, IVideoProccessingService videoProccessingService)
         {
-            _context = context;
+            _videoRepository = videoRepository;
+            _imageRepository = imageRepository;
             _fileManagerService = fileManagerService;
+            _cloudServices = cloudServices;
+            _videoProccessingService = videoProccessingService;
         }
 
         /// <summary>
@@ -26,7 +35,7 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task UploadChunk(Stream chunk, string fileName, int chunkNumber)
         {
             var chunkPath = Path.Combine("temp", $"{fileName}.part{chunkNumber}");
-            await _fileManagerService.SaveVideoChunk(chunkPath, chunk, chunkNumber);
+            await _fileManagerService.SaveStreamToFileAsync(chunkPath, chunk);
         }
 
         /// <summary>
@@ -43,36 +52,31 @@ namespace OmegaStreamServices.Services.VideoServices
             // Generate a unique name for the video and thumbnail
             string uniqueFileName = _fileManagerService.GenerateFileName();
 
+            // Először egy külön mappát hoz létre
             _fileManagerService.CreateDirectory($"temp/{uniqueFileName}");
+            // A készülő .mp4 fájl végleges útvonala
             var finalPath = Path.Combine($"temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
 
+            // Ez hozza létre az mp4 videót
+            await AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
+
             
-            await _fileManagerService.AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
-            await _fileManagerService.SaveImage(Path.Combine("images/thumbnails/", $"{uniqueFileName}.png"), image);
             await SaveImageToDatabase(uniqueFileName, "png");
 
-            // Convert mp4 into m3u8
-            _fileManagerService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 20);
-            
-
-            TimeSpan duration = _fileManagerService.GetVideoDuration(finalPath);
+            TimeSpan duration = GetVideoDuration(finalPath);
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
+
+            // Átalakítja az mp4-et .m3u8 formátummá
+            await _videoProccessingService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 20);
+
+            // Ha minden megvan, akkor feltöltük a fájlokat
+            await UploadVideoToR2(uniqueFileName);
+            await _cloudServices.UploadToR2($"images/thumbnails/{uniqueFileName}.png", image);
         }
 
-        
-
-
-
-        /// <summary>
-        /// Saves the video metadata to the database.
-        /// </summary>
-        /// <param name="uniqueFileName">The unique file name of the video.</param>
-        /// <param name="duration">The duration of the video.</param>
-        /// <param name="videoExtension">The file extension of the video.</param>
-        /// <param name="title">The title of the video.</param>
-        /// <param name="userId">The ID of the user who uploaded the video.</param>
         public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId)
         {
+            Image image = await _imageRepository.FindImageByPath(uniqueFileName);
             Video video = new Video
             {
                 Path = uniqueFileName,
@@ -84,12 +88,11 @@ namespace OmegaStreamServices.Services.VideoServices
                 Likes = 0,
                 Status = "none",
                 Description = "Teszt",
-                ThumbnailId = _context.Images.FirstOrDefault(i => i.Path == uniqueFileName).Id,
+                ThumbnailId = image.Id,
                 UserId = userId
             };
 
-            await _context.Videos.AddAsync(video);
-            await _context.SaveChangesAsync();
+            await _videoRepository.Add(video);
         }
 
         public async Task SaveImageToDatabase(string fileName, string extension)
@@ -99,8 +102,65 @@ namespace OmegaStreamServices.Services.VideoServices
                 Path = fileName,
                 Extension = extension
             };
-            await _context.Images.AddAsync(image);
-            await _context.SaveChangesAsync();
+            await _imageRepository.Add(image);
+        }
+
+        public async Task UploadVideoToR2(string folderName)
+        {
+            // Egy tömböt ad vissza, amiben benne van minden fájl elérési útvonala, amit a mappa tartalmaz
+            string[] files = Directory.GetFiles($"temp/{folderName}", "*.*", SearchOption.AllDirectories);
+            var uploadTasks = files.Select(async file =>
+            {
+                if (file.Contains(".ts") || file.Contains(".m3u8"))
+                {
+                    string key = $"videos/{folderName}/{Path.GetFileName(file)}";
+                    var fileContent = File.ReadAllBytes(file);
+                    using var memoryStream = new MemoryStream(fileContent);
+                    await _cloudServices.UploadToR2(key, memoryStream);
+                    _fileManagerService.DeleteFile(file);
+                }
+                else if (file.Contains(".mp4"))
+                {
+                    _fileManagerService.DeleteFile(file);
+                }
+            });
+
+            await Task.WhenAll(uploadTasks);
+
+            // Ha minden megvan, akkor kitörli a mappát, amiben a .mp4 és .ts fájlok voltak
+            _fileManagerService.DeleteDirectory($"temp/{folderName}");
+        }
+
+        public async Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount)
+        {
+            try
+            {
+                using (var finalStream = new FileStream(path, FileMode.Create))
+                {
+                    for (int i = 0; i < totalChunkCount; i++)
+                    {
+                        // Az ideiglenes chunk elérési útvonala
+                        // Ha lemásolta, akkor utána lerörli
+                        var chunkPath = Path.Combine(tempPath, $"{fileName}.part{i}");
+                        using var chunkStream = _fileManagerService.OpenFileStream(chunkPath);
+                        await chunkStream.CopyToAsync(finalStream);
+                        chunkStream.Dispose();
+                        _fileManagerService.DeleteFile(chunkPath);
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                
+                throw;
+            }
+        }
+
+        private TimeSpan GetVideoDuration(string path)
+        {
+            WindowsMediaPlayer wmp = new WindowsMediaPlayer();
+            IWMPMedia mediaInfo = wmp.newMedia(path);
+            return TimeSpan.FromSeconds(mediaInfo.duration);
         }
     }
 }

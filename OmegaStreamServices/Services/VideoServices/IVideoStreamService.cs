@@ -11,7 +11,6 @@ namespace OmegaStreamServices.Services.VideoServices
     {
         Task<(Stream videoStream, string contentType)> GetVideoStreamAsync(string videoKey);
         Task<(Stream segmentStream, string contentType)> GetVideoSegmentAsync(string segmentKey);
-        Task<(Stream imageStream, string contentType)> GetImageStreamAsync(int imageId, string path = "thumbnails");
 
         /// <summary>
         /// Gets all video data from the database.
@@ -25,5 +24,6 @@ namespace OmegaStreamServices.Services.VideoServices
         /// <param name="id">The ID of the video.</param>
         /// <returns>The video data.</returns>
         Task<Video> GetVideoMetaData(int id);
+        Task<(Stream imageStream, string contentType)> GetStreamAsync(int imageId, string path);
     }
 }

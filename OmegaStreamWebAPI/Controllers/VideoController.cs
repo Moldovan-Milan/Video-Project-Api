@@ -116,7 +116,7 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-                (Stream imageStream, string contentType) = await _videoStreamService.GetImageStreamAsync(imageId);
+                (Stream imageStream, string contentType) = await _videoStreamService.GetStreamAsync(imageId, "thumbnails");
                 return File(imageStream, contentType);
             }
             catch (AmazonS3Exception ex)
@@ -127,7 +127,6 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return BadRequest(new { message = $"Error {ex.Message}" });
             }
-            
         }
 
         /// <summary>
@@ -182,7 +181,7 @@ namespace OmegaStreamWebAPI.Controllers
         /// <returns>The video stream response.</returns>
         private IActionResult CreateVideoStreamResponse(FileStream videoStream, string extension)
         {
-            string range = Request.Headers.Range;
+            string range = Request.Headers.Range!;
             return string.IsNullOrEmpty(range)
                 ? File(videoStream, $"video/{extension}")
                 : File(videoStream, $"video/{extension}", enableRangeProcessing: true);

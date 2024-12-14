@@ -10,101 +10,71 @@ using System.Threading.Tasks;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using Microsoft.EntityFrameworkCore;
+using OmegaStreamServices.Services.Repositories;
 
 namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoStreamService : IVideoStreamService
     {
-        private readonly AppDbContext _context;
-        // Paraméterei az R2 Object Storage-nak
-        private readonly string _accessKey;
-        private readonly string _secretKey;
-        private readonly string _serviceUrl;
-        private readonly string _bucketName;
+        // Constans
+        private const string ThumbnailPath = "thumbnails";
+        private const string ImagesFolder = "images";
+        private const string VideosFolder = "videos";
 
-        private readonly BasicAWSCredentials _credentials;
-        private readonly AmazonS3Config _awsConfig;
+        // Repository
+        private readonly IVideoRepository _videoRepository;
+        private readonly IImageRepository _imageRepository;
 
-        public VideoStreamService(IConfiguration configuration, AppDbContext context)
+        // R2
+        private readonly ICloudService _cloudServices;
+
+        public VideoStreamService(IConfiguration configuration, IVideoRepository videoRepository,
+            IImageRepository imageRepository, ICloudService cloudServices)
         {
             // Db conn
-            _context = context;
+            _videoRepository = videoRepository;
+            _imageRepository = imageRepository;
 
-            // R2 beállítása
-            _accessKey = configuration["R2:AccessKey"]!;
-            _secretKey = configuration["R2:SecretKey"]!;
-            _serviceUrl = configuration["R2:ServiceUrl"]!;
-            _bucketName = configuration["R2:BucketName"]!;
-            _credentials = new BasicAWSCredentials(_accessKey, _secretKey);
-            _awsConfig = new AmazonS3Config
-            {
-                ServiceURL = _serviceUrl,
-                ForcePathStyle = true,
-
-            };
+            // R2
+            _cloudServices = cloudServices;
         }
 
         #region Stream
-        public async Task<(Stream imageStream, string contentType)> GetImageStreamAsync(int imageId, string path = "thumbnails")
+        private async Task<(Stream fileStream, string contentType)> GetFileStreamAsync(string folder, string fileName)
         {
-            AmazonS3Client _awsClient = new AmazonS3Client(_credentials, _awsConfig);
-            // Kép elérési útvonalának megkeresése
-            Image image = await _context.Images.FirstOrDefaultAsync(x => x.Id == imageId)!;
+            return await _cloudServices.GetFileStreamAsync($"{folder}/{fileName}");
+        }
 
-            
-            var request = new GetObjectRequest
-            {
-                BucketName = _bucketName,
-                Key = $"images/{path}/{image.Path}.{image.Extension}",
-            };
-            var response = await _awsClient.GetObjectAsync(request);
-            return (response.ResponseStream, response.Headers["Content-Type"] ?? "image/png");
+
+        public async Task<(Stream imageStream, string contentType)> GetStreamAsync(int imageId, string path = ThumbnailPath)
+        {
+            Image image = await _imageRepository.FindByIdAsync(imageId);
+            string fileName = $"{path}/{image.Path}.{image.Extension}";
+            return await GetFileStreamAsync(ImagesFolder, fileName);
         }
 
         public async Task<(Stream segmentStream, string contentType)> GetVideoSegmentAsync(string segmentKey)
         {
-            AmazonS3Client _awsClient = new AmazonS3Client(_credentials, _awsConfig);
-            string path = GetFolder(segmentKey);
-            var request = new GetObjectRequest
-            {
-                BucketName = _bucketName,
-                Key = $"videos/{path}/{segmentKey}"
-            };
-
-            var response = await _awsClient.GetObjectAsync(request);
-            return (response.ResponseStream, response.Headers["Content-Type"] ?? "video/mp2t");
+            string folder = GetFolder(segmentKey);
+            return await GetFileStreamAsync(VideosFolder, $"{folder}/{segmentKey}");
         }
-
 
         public async Task<(Stream videoStream, string contentType)> GetVideoStreamAsync(string videoKey)
         {
-            AmazonS3Client _awsClient = new AmazonS3Client(_credentials, _awsConfig);
-            var path = videoKey.Split(".").First();
-            
-            var request = new GetObjectRequest
-            {
-                BucketName = _bucketName,
-                Key = $"videos/{path}/{videoKey}"
-            };
-
-            var response = await _awsClient.GetObjectAsync(request);
-            return (response.ResponseStream, response.Headers["Content-Type"] ?? "application/vnd.apple.mpegurl");
+            string folder = videoKey.Split(".").First();
+            return await GetFileStreamAsync(VideosFolder, $"{folder}/{videoKey}");
         }
 
         private string GetFolder(string fileName)
         {
-            // Kiterjesztés eltávolítása
-            int lastPeriodIndex = fileName.LastIndexOf('.');
-            if (lastPeriodIndex == -1)
-            {
-                lastPeriodIndex = fileName.Length; // Ha nincs kiterjesztés, akkor az egész fájlnév az azonosító
-            }
+            // Vegyük az utolsó három karakter előtti részt, a kiterjesztés figyelembevételével
+            int suffixLength = 3; // Az utolsó három számjegy
+            int extensionIndex = fileName.LastIndexOf('.');
+            if (extensionIndex == -1)
+                extensionIndex = fileName.Length;
 
-            // Az utolsó három számjegy eltávolítása
-            string baseName = fileName.Substring(0, lastPeriodIndex); // Az utolsó három számot és a kiterjesztést levágjuk
-            int lengthWithoutSuffix = baseName.Length - 3;
-
-            return baseName.Substring(0, lengthWithoutSuffix);
+            int folderLength = extensionIndex - suffixLength;
+            return fileName.Substring(0, Math.Max(0, folderLength));
         }
 
         #endregion Stream
@@ -113,23 +83,12 @@ namespace OmegaStreamServices.Services.VideoServices
         #region MetaData
         public async Task<List<Video>> GetAllVideosMetaData()
         {
-            return await _context.Videos.ToListAsync();
+            return await _videoRepository.GetAll();
         }
 
         public async Task<Video> GetVideoMetaData(int id)
         {
-            var video = await _context.Videos.Include(x => x.User).FirstOrDefaultAsync(v => v.Id == id);
-            if (video != null)
-            {
-                User user = new User
-                {
-                    UserName = video.User.UserName,
-                    Avatar = video.User.Avatar,
-                    Followers = video.User.Followers
-                };
-                video.User = user;
-            }
-            return video!;
+            return await _videoRepository.GetVideoWithInclude(id); ;
         }
         #endregion
     }
