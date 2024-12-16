@@ -23,7 +23,8 @@ namespace OmegaStreamServices.Services.UserServices
         private readonly IImageRepository _imageRepository;
         private readonly ICloudService _cloudServices;
 
-        public UserManagerService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher, SignInManager<User> signInManager, AppDbContext context, IConfiguration configuration, IFileManagerService fileManagerService, IImageRepository imageRepository, ICloudService cloudServices)
+        public UserManagerService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher, SignInManager<User> signInManager, AppDbContext context, IConfiguration configuration, IFileManagerService fileManagerService, IImageRepository imageRepository, ICloudService cloudServices
+            )
         {
             _userManager = userManager;
             _passwordHasher = passwordHasher;
@@ -33,6 +34,7 @@ namespace OmegaStreamServices.Services.UserServices
             _FileManagerService = fileManagerService;
             _imageRepository = imageRepository;
             _cloudServices = cloudServices;
+
         }
 
 
@@ -60,6 +62,7 @@ namespace OmegaStreamServices.Services.UserServices
                 AvatarId = image.Id,
                 Created = DateTime.UtcNow,
                 Followers = 0,
+                //Verified = false
             };
             user.PasswordHash = _passwordHasher.HashPassword(user, password);
 
@@ -157,6 +160,16 @@ namespace OmegaStreamServices.Services.UserServices
         {
             
             return _userManager.FindByIdAsync(id)!;
+        }
+
+        public async Task<(Stream file, string contentType)> GetUserAvatarImage(int id)
+        {
+            Image image = await _imageRepository.FindByIdAsync(id);
+            if (image == null)
+            {
+                return (null, null);
+            }
+            return await _cloudServices.GetFileStreamAsync($"images/avatars/{image.Path}.{image.Extension}");
         }
     }
 }

@@ -9,5 +9,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task<string> LoginUser(string email, string password);
         Task LogoutUser();
         Task<User> GetUserById(string id);
+        Task<(Stream file, string contentType)> GetUserAvatarImage(int id);
     }
 }

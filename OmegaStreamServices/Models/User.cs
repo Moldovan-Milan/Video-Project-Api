@@ -15,7 +15,11 @@ namespace OmegaStreamServices.Models
         [Column("followers")] [Required] 
         public int Followers { get; set; } 
         [Column("created")] 
-        [Required] public 
-        DateTime Created { get; set; }
+        [Required] 
+        public DateTime Created { get; set; }
+
+        //[Column("verified")]
+        //[Required]
+        //public bool Verified { get; set; }
     }
 }

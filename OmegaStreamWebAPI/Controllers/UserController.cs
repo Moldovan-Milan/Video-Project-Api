@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Services.UserServices;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services.Repositories;
+using OmegaStreamServices.Services;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -11,10 +13,12 @@ namespace OmegaStreamWebAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserManagerService _userManagerService;
+       
 
-        public UserController(IUserManagerService userManagerService)
+        public UserController(IUserManagerService userManagerService, IImageRepository imageRepository, ICloudService cloudService)
         {
             _userManagerService = userManagerService;
+
         }
 
         [Route("register")]
@@ -62,6 +66,21 @@ namespace OmegaStreamWebAPI.Controllers
             }
             user.PasswordHash = String.Empty;
             return Ok(user);
+        }
+
+        [Route("avatar/{id}")]
+        [HttpGet]
+        public async Task<IActionResult> GetAvatarImage(int id)
+        {
+            try
+            {
+                (Stream file, string extension) = await _userManagerService.GetUserAvatarImage(id);
+                return File(file, $"image/png");
+
+            }
+            catch (Exception ex){
+                return BadRequest(ex.Message);
+            }
         }
     }
 }
