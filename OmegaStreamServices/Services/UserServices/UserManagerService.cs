@@ -167,7 +167,7 @@ namespace OmegaStreamServices.Services.UserServices
             Image image = await _imageRepository.FindByIdAsync(id);
             if (image == null)
             {
-                return (null, null);
+                throw new Exception("Avatar not found on the database");
             }
             return await _cloudServices.GetFileStreamAsync($"images/avatars/{image.Path}.{image.Extension}");
         }

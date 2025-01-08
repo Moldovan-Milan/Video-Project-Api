@@ -83,12 +83,12 @@ namespace OmegaStreamServices.Services.VideoServices
         #region MetaData
         public async Task<List<Video>> GetAllVideosMetaData()
         {
-            return await _videoRepository.GetAll();
+            return await _videoRepository.GetAllVideosWithIncludes();
         }
 
         public async Task<Video> GetVideoMetaData(int id)
         {
-            return await _videoRepository.GetVideoWithInclude(id); ;
+            return await _videoRepository.GetVideoWithInclude(id);
         }
         #endregion
     }

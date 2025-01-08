@@ -75,7 +75,7 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 (Stream file, string extension) = await _userManagerService.GetUserAvatarImage(id);
-                return File(file, $"image/png");
+                return File(file, extension);
 
             }
             catch (Exception ex){
