@@ -103,8 +103,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
-                    builder => builder.WithOrigins("http://localhost:5173")
-                                      .AllowAnyMethod()
+                    builder => builder.WithOrigins("http://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
                                       .AllowAnyMethod()
                                       .WithHeaders("Authorization", "Content-Type", "Content-Range") // Authorization header-t engedélyezi
                                       .AllowCredentials());

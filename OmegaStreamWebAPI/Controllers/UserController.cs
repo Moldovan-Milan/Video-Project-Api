@@ -5,6 +5,7 @@ using OmegaStreamServices.Services.UserServices;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -56,16 +57,31 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("profile/{id}")]
         [HttpGet]
-        //[Authorize]
+        [Authorize]
         public async Task<IActionResult> Profile(string id)
         {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken != id)
+            {
+                return Forbid();
+            }
+
             User user = await _userManagerService.GetUserById(id);
             if (user == null)
             {
                 return NotFound();
             }
-            user.PasswordHash = String.Empty;
-            return Ok(user);
+            
+            UserDto userDto = new UserDto
+            {
+                UserName = user.UserName!,
+                Email = user.Email!,
+                AvatarId = user.AvatarId,
+                Followers = user.Followers,
+            };
+
+            return Ok(userDto);
         }
 
         [Route("avatar/{id}")]
