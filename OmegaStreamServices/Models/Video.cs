@@ -43,14 +43,12 @@ namespace OmegaStreamServices.Models
         [Column("status")]
         public string Status { get; set; }
 
-        [Column("likes")]
-        public int Likes { get; set; }
-
-        [Column("dislikes")]
-        public int Dislikes { get; set; }
-
         [Column("created")]
         [Required]
-        public DateTime Created { get; set; }      
+        public DateTime Created { get; set; }
+        
+        // Relationships
+
+        public virtual ICollection<VideoLikes> VideoLikes { get; set; }
     }
 }

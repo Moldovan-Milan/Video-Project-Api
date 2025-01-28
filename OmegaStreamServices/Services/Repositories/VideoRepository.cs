@@ -23,6 +23,13 @@ namespace OmegaStreamServices.Services.Repositories
             return videos;
         }
 
+        public Task<List<Video>> GetVideosByName(string name)
+        {
+            name = name.ToLower();
+            return _dbSet.Where(x => x.Title.ToLower().Contains(name))
+                .Include(x => x.User).Include(x => x.Thumbnail).ToListAsync();
+        }
+
         public async Task<Video> GetVideoWithInclude(int id)
         {
             Video video = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)

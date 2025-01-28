@@ -8,10 +8,7 @@ using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Services.Repositories
 {
-    public interface IVideoRepository: IBaseRepository<Video>
+    public interface ICommentRepositroy: IBaseRepository<Comment>
     {
-        Task<List<Video>> GetAllVideosWithIncludes();
-        Task<Video> GetVideoWithInclude(int id);
-        Task<List<Video>> GetVideosByName(string name);
     }
 }

@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Models;
+using System.Reflection.Emit;
 
 namespace OmegaStreamServices.Data
 {
@@ -9,7 +11,35 @@ namespace OmegaStreamServices.Data
         public DbSet<Video> Videos { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Image> Images { get; set; }
+        public DbSet<VideoLikes> VideoLikes { get; set; }
+        public DbSet<Comment> Comments { get; set; }
+        public DbSet<VideoComment> VideoComments { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            builder.Entity<IdentityUserLogin<string>>().HasKey(login => new { login.LoginProvider, login.ProviderKey });
+            builder.Entity<IdentityUserRole<string>>().HasKey(role => new { role.UserId, role.RoleId });
+            builder.Entity<IdentityUserToken<string>>().HasKey(token => new { token.UserId, token.LoginProvider, token.Name });
+
+            #region VideoLikes table
+            builder.Entity<VideoLikes>()
+                    .HasKey(vl => new { vl.UserId, vl.VideoId });
+            builder.Entity<VideoLikes>()
+                .HasOne(vl => vl.User)
+                .WithMany(v => v.VideoLikes)
+                .HasForeignKey(v => v.UserId);
+
+            builder.Entity<VideoLikes>()
+                .HasOne(vl => vl.Video)
+                .WithMany(v => v.VideoLikes)
+                .HasForeignKey(v => v.VideoId);
+
+            #endregion VideoLikes table
+
+            builder.Entity<VideoComment>()
+                .HasKey(vk => new { vk.CommentId, vk.VideoId });
+        }
     }
 }

@@ -1,7 +1,11 @@
 ﻿using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.VideoServices;
+using System.Diagnostics.CodeAnalysis;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -11,180 +15,205 @@ namespace OmegaStreamWebAPI.Controllers
     {
         private readonly IVideoUploadService _videoUploadService;
         private readonly IVideoStreamService _videoStreamService;
+        private readonly ILogger<VideoController> _logger;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, IVideoStreamService videoStreamService2)
+        public VideoController([NotNull] IVideoUploadService videoUploadService, [NotNull] IVideoStreamService videoStreamService, [NotNull] ILogger<VideoController> logger)
         {
             _videoUploadService = videoUploadService;
-            _videoStreamService = videoStreamService2;
+            _videoStreamService = videoStreamService;
+            _logger = logger;
         }
 
-        /// <summary>
-        /// Gets the video by its ID and streams it.
-        /// </summary>
-        /// <param name="id">The ID of the video.</param>
-        /// <returns>The video stream or a 404 Not Found response if the video does not exist.</returns>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetVideo(int id)
         {
-            var video = await _videoStreamService.GetVideoMetaData(id);
+            _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
+            var video = await _videoStreamService.GetVideoMetaData(id).ConfigureAwait(false);
             if (video == null)
+            {
+                _logger.LogWarning("Video metadata not found for ID: {Id}", id);
                 return NotFound();
+            }
 
             string videoKey = $"{video.Path}.m3u8";
 
             try
             {
-                // Videó adatfolyam lekérése a service segítségével
-                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey);
-
-                // Stream átadása a kliensnek
+                _logger.LogInformation("Fetching video stream for key: {Key}", videoKey);
+                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey).ConfigureAwait(false);
                 return File(videoStream, contentType, enableRangeProcessing: true);
-            }
-            catch (AmazonS3Exception ex)
-            {
-                return NotFound(new { message = $"Nem található a videó: {videoKey}, hiba: {ex.Message}" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = $"Hiba történt: {ex.Message}" });
+                return HandleException(ex, "video");
             }
         }
 
         [HttpGet("segments/{segmentKey}")]
         public async Task<IActionResult> GetVideoSegment(string segmentKey)
         {
+            _logger.LogInformation("Fetching video segment for key: {SegmentKey}", segmentKey);
             try
             {
-                // Videó szegmens adatfolyam lekérése a service segítségével
-                var (segmentStream, contentType) = await _videoStreamService.GetVideoSegmentAsync(segmentKey);
-
-                // Szegmens stream átadása a kliensnek
+                var (segmentStream, contentType) = await _videoStreamService.GetVideoSegmentAsync(segmentKey).ConfigureAwait(false);
                 return File(segmentStream, contentType, enableRangeProcessing: true);
-            }
-            catch (AmazonS3Exception ex)
-            {
-                return NotFound(new { message = $"Nem található a szegmens: {segmentKey}, hiba: {ex.Message}" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = $"Hiba történt: {ex.Message}" });
+                return HandleException(ex, "segment");
             }
         }
 
-
-        /// <summary>
-        /// Gets all video data.
-        /// </summary>
-        /// <returns>A list of all videos or a 404 Not Found response if no videos exist.</returns>
         [HttpGet]
         public async Task<IActionResult> GetVideosData()
         {
-            var videos = await _videoStreamService.GetAllVideosMetaData();
-            return videos == null ? NotFound() : Ok(videos);
+            _logger.LogInformation("Fetching all video metadata.");
+            var videos = await _videoStreamService.GetAllVideosMetaData().ConfigureAwait(false);
+            if (videos == null || !videos.Any())
+            {
+                _logger.LogWarning("No videos found.");
+                return videos == null ? NotFound() : NoContent();
+            }
+
+            _logger.LogInformation("Successfully fetched video metadata.");
+            return Ok(videos);
         }
 
-        /// <summary>
-        /// Gets the video data by its ID.
-        /// </summary>
-        /// <param name="id">The ID of the video.</param>
-        /// <returns>The video data or a 404 Not Found response if the video does not exist.</returns>
         [HttpGet("data/{id}")]
         public async Task<IActionResult> GetVideoData(int id)
         {
+            _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
             try
             {
-                var video = await _videoStreamService.GetVideoMetaData(id);
-                return video == null ? NotFound() : Ok(video);
-            }
-            catch(AmazonS3Exception ex)
-            {
-                return NotFound(new { message = $"Hiba történt: ${ex.Message}" });
-            }
-            catch(Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
+                var video = await _videoStreamService.GetVideoMetaData(id).ConfigureAwait(false);
+                if (video == null)
+                {
+                    _logger.LogWarning("Video metadata not found for ID: {Id}", id);
+                    return NotFound();
+                }
 
-        /// <summary>
-        /// Gets the thumbnail image for a video by its ID.
-        /// </summary>
-        /// <param name="imageId">The ID of the image.</param>
-        /// <returns>The thumbnail image stream or a 404 Not Found response if the image does not exist.</returns>
-        [HttpGet("thumbnail/{imageId}")]
-        public async Task<IActionResult> GetThumbnailImage(int imageId)
-        {
-            try
-            {
-                (Stream imageStream, string contentType) = await _videoStreamService.GetStreamAsync(imageId, "thumbnails");
-                return File(imageStream, contentType);
-            }
-            catch (AmazonS3Exception ex)
-            {
-                return NotFound(new { message = $"Error: ${ex.Message}" });
+                _logger.LogInformation("Successfully fetched video metadata for ID: {Id}", id);
+                return Ok(video);
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = $"Error {ex.Message}" });
+                return HandleException(ex, "video metadata");
             }
         }
 
-        /// <summary>
-        /// Uploads a video chunk.
-        /// </summary>
-        /// <param name="chunk">The video chunk to be uploaded.</param>
-        /// <param name="fileName">The name of the file.</param>
-        /// <param name="chunkNumber">The chunk number.</param>
-        /// <returns>A 201 Created response if the chunk is uploaded successfully.</returns>
+        [Authorize]
+        [HttpGet("is-liked-by-user/{videoId}")]
+        public async Task<IActionResult> IsLikedByUser(int videoId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                    return Forbid("Token is not valid");
+
+                _logger.LogInformation("Get the value of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
+                string result = await _videoStreamService.IsUserLikedVideo(userIdFromToken, videoId);
+                return Ok(new { Result = result });
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "userLike");
+            }
+            
+        }
+
+        [HttpPost("set-user-like/{videoId}")]
+        [Authorize]
+        public async Task<IActionResult> SetUserLike(int videoId, [FromForm] string value)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                    return Forbid("User id is not valid");
+                bool success = await _videoStreamService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
+                return Ok(success);
+            }
+            catch (Exception ex) 
+            {
+                return HandleException(ex, "set-video-like");   
+            }
+        }
+
+        [HttpGet("thumbnail/{imageId}")]
+        public async Task<IActionResult> GetThumbnailImage(int imageId)
+        {
+            _logger.LogInformation("Fetching thumbnail image for ID: {ImageId}", imageId);
+            try
+            {
+                var (imageStream, contentType) = await _videoStreamService.GetStreamAsync(imageId, "thumbnails").ConfigureAwait(false);
+                return File(imageStream, contentType);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "thumbnail");
+            }
+        }
+
+        [HttpGet("search/{searchString}")]
+        public async Task<IActionResult> Search(string searchString)
+        {
+            if (searchString == null)
+                return BadRequest("Search is null");
+            try
+            {
+                return Ok(_videoStreamService.GetVideosByName(searchString));
+            }
+            catch(Exception ex)
+            {
+                return HandleException(ex, "search");
+            }
+        }
+
         [Authorize]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
             if (chunk == null || chunk.Length == 0)
-                return BadRequest("No chunk uploaded.");
-
-            using (var chunkStream = chunk.OpenReadStream())
             {
-                await _videoUploadService.UploadChunk(chunkStream, fileName, chunkNumber);
+                _logger.LogWarning("No chunk uploaded for file: {FileName}, chunk number: {ChunkNumber}", fileName, chunkNumber);
+                return BadRequest("No chunk uploaded.");
             }
-            return Created();
+
+            _logger.LogInformation("Uploading chunk {ChunkNumber} for file: {FileName}", chunkNumber, fileName);
+            await using var chunkStream = chunk.OpenReadStream();
+            await _videoUploadService.UploadChunk(chunkStream, fileName, chunkNumber).ConfigureAwait(false);
+            _logger.LogInformation("Successfully uploaded chunk {ChunkNumber} for file: {FileName}", chunkNumber, fileName);
+            return Created("", new { message = "Chunk uploaded successfully." });
         }
 
-        /// <summary>
-        /// Assembles the video chunks into a single file.
-        /// </summary>
-        /// <param name="fileName">The name of the file.</param>
-        /// <param name="image">The thumbnail image.</param>
-        /// <param name="totalChunks">The total number of chunks.</param>
-        /// <param name="title">The title of the video.</param>
-        /// <param name="extension">The file extension of the video.</param>
-        /// <param name="userId">The ID of the user who uploaded the video.</param>
-        /// <returns>A 201 Created response if the video is assembled successfully.</returns>
         [Authorize]
         [HttpPost("assemble")]
         public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension, [FromForm] string userId)
         {
-
-            using (var imageStream = image.OpenReadStream())
+            if (image == null || image.Length == 0)
             {
-                await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userId);
-
+                _logger.LogWarning("No thumbnail image provided for assembling file: {FileName}", fileName);
+                return BadRequest("No thumbnail image provided.");
             }
-            return Created();
+
+            _logger.LogInformation("Assembling file: {FileName} with {TotalChunks} chunks.", fileName, totalChunks);
+            await using var imageStream = image.OpenReadStream();
+            await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userId).ConfigureAwait(false);
+            _logger.LogInformation("Successfully assembled file: {FileName}", fileName);
+            return Created("", new { message = "Video assembled successfully." });
         }
 
-        /// <summary>
-        /// Creates a video stream response with range processing if requested.
-        /// </summary>
-        /// <param name="videoStream">The video stream.</param>
-        /// <param name="extension">The file extension of the video.</param>
-        /// <returns>The video stream response.</returns>
-        private IActionResult CreateVideoStreamResponse(FileStream videoStream, string extension)
+        private IActionResult HandleException(Exception ex, string resourceName)
         {
-            string range = Request.Headers.Range!;
-            return string.IsNullOrEmpty(range)
-                ? File(videoStream, $"video/{extension}")
-                : File(videoStream, $"video/{extension}", enableRangeProcessing: true);
+            if (ex is AmazonS3Exception amazonS3Ex)
+            {
+                _logger.LogError(amazonS3Ex, "{ResourceName} not found.", resourceName);
+                return NotFound(new { message = $"{resourceName} not found, error: {amazonS3Ex.Message}" });
+            }
+
+            _logger.LogError(ex, "There was an error: {Message}", ex.Message);
+            return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }
     }
 }

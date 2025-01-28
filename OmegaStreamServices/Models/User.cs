@@ -21,5 +21,9 @@ namespace OmegaStreamServices.Models
         //[Column("verified")]
         //[Required]
         //public bool Verified { get; set; }
+
+        // Relationships
+
+        public virtual ICollection<VideoLikes> VideoLikes { get; set; }
     }
 }

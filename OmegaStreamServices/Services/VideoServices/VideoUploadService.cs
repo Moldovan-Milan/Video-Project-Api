@@ -67,7 +67,7 @@ namespace OmegaStreamServices.Services.VideoServices
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
 
             // Átalakítja az mp4-et .m3u8 formátummá
-            await _videoProccessingService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 20);
+            await _videoProccessingService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 30);
 
             // Ha minden megvan, akkor feltöltük a fájlokat
             await UploadVideoToR2(uniqueFileName);
@@ -84,8 +84,6 @@ namespace OmegaStreamServices.Services.VideoServices
                 Duration = duration,
                 Extension = videoExtension,
                 Title = title,
-                Dislikes = 0,
-                Likes = 0,
                 Status = "none",
                 Description = "Teszt",
                 ThumbnailId = image.Id,

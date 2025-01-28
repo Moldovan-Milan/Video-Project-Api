@@ -6,6 +6,7 @@ using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services;
 using System.Security.Claims;
+using OmegaStreamServices.Dto;
 
 namespace OmegaStreamWebAPI.Controllers
 {
