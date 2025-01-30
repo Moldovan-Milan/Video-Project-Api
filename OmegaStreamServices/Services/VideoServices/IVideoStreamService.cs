@@ -45,5 +45,7 @@ namespace OmegaStreamServices.Services.VideoServices
         Task<bool> UpdateUserLikedVideo(int videoId, string userId, string likeValue);
 
         Task<List<Video>> GetVideosByName(string name);
+
+        Task<bool> AddNewComment(NewCommentDto newComment, string UserId);
     }
 }

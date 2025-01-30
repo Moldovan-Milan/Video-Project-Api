@@ -13,7 +13,6 @@ namespace OmegaStreamServices.Data
         public DbSet<Image> Images { get; set; }
         public DbSet<VideoLikes> VideoLikes { get; set; }
         public DbSet<Comment> Comments { get; set; }
-        public DbSet<VideoComment> VideoComments { get; set; }
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -37,9 +36,6 @@ namespace OmegaStreamServices.Data
                 .HasForeignKey(v => v.VideoId);
 
             #endregion VideoLikes table
-
-            builder.Entity<VideoComment>()
-                .HasKey(vk => new { vk.CommentId, vk.VideoId });
         }
     }
 }

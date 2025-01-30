@@ -7,6 +7,7 @@ using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services;
 using System.Security.Claims;
 using OmegaStreamServices.Dto;
+using AutoMapper;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -15,12 +16,14 @@ namespace OmegaStreamWebAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserManagerService _userManagerService;
+        private readonly IMapper _mapper;
        
 
-        public UserController(IUserManagerService userManagerService, IImageRepository imageRepository, ICloudService cloudService)
+        public UserController(IUserManagerService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
+            IMapper mapper)
         {
             _userManagerService = userManagerService;
-
+            _mapper = mapper;
         }
 
         [Route("register")]
@@ -56,31 +59,25 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok();
         }
 
-        [Route("profile/{id}")]
+        [Route("profile")]
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> Profile(string id)
+        public async Task<IActionResult> Profile()
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (userIdFromToken != id)
+            if (userIdFromToken == null)
             {
-                return Forbid();
+                return Forbid("You are not logged in!");
             }
 
-            User user = await _userManagerService.GetUserById(id);
+            User user = await _userManagerService.GetUserById(userIdFromToken);
             if (user == null)
             {
                 return NotFound();
             }
             
-            UserDto userDto = new UserDto
-            {
-                UserName = user.UserName!,
-                Email = user.Email!,
-                AvatarId = user.AvatarId,
-                Followers = user.Followers,
-            };
+            UserDto userDto = _mapper.Map<UserDto>(user);
 
             return Ok(userDto);
         }

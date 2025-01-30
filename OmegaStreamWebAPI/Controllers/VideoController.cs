@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.VideoServices;
 using System.Diagnostics.CodeAnalysis;
@@ -23,6 +24,8 @@ namespace OmegaStreamWebAPI.Controllers
             _videoStreamService = videoStreamService;
             _logger = logger;
         }
+
+        #region Video Stream
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetVideo(int id)
@@ -171,6 +174,35 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [Authorize]
+        [HttpPost("write-new-comment")]
+        public async Task<IActionResult> WriteNewComment([FromForm] NewCommentDto newComment)
+        {
+            try
+            {
+
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                _logger.LogDebug("User id is: {UserId}, video id is: {VideoId}", userIdFromToken, newComment.VideoId);
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                bool result = await _videoStreamService.AddNewComment(newComment, userIdFromToken);
+                if (result)
+                    return Ok("Comment created");
+                else
+                    return BadRequest("There was some unexpected error :(");
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "new-comment");
+            }
+        }
+
+        #endregion Video Stream
+
+        #region Video Upload
+
+        [Authorize]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
@@ -189,8 +221,14 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Authorize]
         [HttpPost("assemble")]
-        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension, [FromForm] string userId)
+        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension)
         {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdFromToken == null)
+            {
+                return Forbid("You are not logged in!");
+            }
+
             if (image == null || image.Length == 0)
             {
                 _logger.LogWarning("No thumbnail image provided for assembling file: {FileName}", fileName);
@@ -199,10 +237,12 @@ namespace OmegaStreamWebAPI.Controllers
 
             _logger.LogInformation("Assembling file: {FileName} with {TotalChunks} chunks.", fileName, totalChunks);
             await using var imageStream = image.OpenReadStream();
-            await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userId).ConfigureAwait(false);
+            await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userIdFromToken).ConfigureAwait(false);
             _logger.LogInformation("Successfully assembled file: {FileName}", fileName);
             return Created("", new { message = "Video assembled successfully." });
         }
+
+        #endregion Video Upload
 
         private IActionResult HandleException(Exception ex, string resourceName)
         {

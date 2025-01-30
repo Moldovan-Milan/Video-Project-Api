@@ -28,6 +28,7 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoRepository _videoRepository;
         private readonly IImageRepository _imageRepository;
         private readonly IVideoLikesRepository _videoLikesRepository;
+        private readonly ICommentRepositroy _commentRepositroy;
 
         private readonly UserManager<User> _userManager;
 
@@ -39,7 +40,8 @@ namespace OmegaStreamServices.Services.VideoServices
 
         public VideoStreamService(IConfiguration configuration, IVideoRepository videoRepository,
             IImageRepository imageRepository, ICloudService cloudServices,
-            IVideoLikesRepository videoLikesRepository, IMapper mapper, UserManager<User> userManager)
+            IVideoLikesRepository videoLikesRepository, IMapper mapper, UserManager<User> userManager, 
+            ICommentRepositroy commentRepositroy)
         {
             // Repos
             _videoRepository = videoRepository;
@@ -53,6 +55,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
             // Mapper
             _mapper = mapper;
+            _commentRepositroy = commentRepositroy;
         }
 
         #region Stream
@@ -184,6 +187,27 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task<List<Video>> GetVideosByName(string name)
         {
             return await _videoRepository.GetVideosByName(name); 
+        }
+
+        public async Task<bool> AddNewComment(NewCommentDto newComment, string UserId)
+        {
+            User user = await _userManager.FindByIdAsync(UserId)!;
+            Video video = await _videoRepository.FindByIdAsync(newComment.VideoId);
+            if (user == null || video == null)
+            {
+                return false;
+            }
+            Comment comment = new Comment
+            {
+                Content = newComment.Content,
+                UserId = user.Id,
+                Created = DateTime.Now,
+                VideoId = newComment.VideoId,
+                User = user,
+                Video = video
+            };
+            await _commentRepositroy.Add(comment);
+            return true;
         }
 
 

@@ -18,8 +18,8 @@ namespace OmegaStreamServices.Services.Repositories
 
         public async Task<List<Video>> GetAllVideosWithIncludes()
         {
-            var videos = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail).ToListAsync();
-            videos.ForEach(v => v.User.PasswordHash = String.Empty);
+            var videos = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
+.ToListAsync();
             return videos;
         }
 
@@ -33,6 +33,7 @@ namespace OmegaStreamServices.Services.Repositories
         public async Task<Video> GetVideoWithInclude(int id)
         {
             Video video = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
+                .Include(x => x.Comments).ThenInclude(x => x.User)
                 .FirstOrDefaultAsync(v => v.Id == id)!;
             video.User.PasswordHash = String.Empty;
             return video;

@@ -57,7 +57,7 @@ namespace OmegaStreamWebAPI
             // Db connection
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite("Data Source=omega_stream.db"));
+                options.UseSqlite("Data Source=omega_stream.sqlite"));
 
             // Identity
             builder.Services.AddIdentity<User, IdentityRole>()
@@ -88,6 +88,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddTransient<IVideoRepository, VideoRepository>();
             builder.Services.AddTransient<IImageRepository, ImageRepository>();
             builder.Services.AddTransient<IVideoLikesRepository, VideoLikesRepository>();
+            builder.Services.AddTransient<ICommentRepositroy, CommentRepository>();
 
             // Custom services
             builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();

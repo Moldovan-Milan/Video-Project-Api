@@ -18,7 +18,11 @@ namespace OmegaStreamServices.Models
         // Relations
         public string UserId { get; set; }
         [ForeignKey("UserId")]
-        public virtual User User { get; set; } = new User();
+        public virtual User? User { get; set; } = new User();
+        
+        public int VideoId { get; set; }
+        [ForeignKey("VideoId")]
+        public virtual Video? Video { get; set; }
        
     }
 }
