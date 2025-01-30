@@ -34,7 +34,7 @@ namespace OmegaStreamServices.Models
         [Column("description")]
         public string Description { get; set; }
 
-        [Column("user_id")]
+        [Column("user_id")] 
         public string UserId { get; set; }
 
         [ForeignKey("UserId")]
@@ -50,5 +50,6 @@ namespace OmegaStreamServices.Models
         // Relationships
 
         public virtual ICollection<VideoLikes> VideoLikes { get; set; }
+        public virtual ICollection<Comment> Comments { get; set; }
     }
 }
