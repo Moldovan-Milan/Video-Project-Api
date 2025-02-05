@@ -186,9 +186,9 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Forbid("You are not logged in!");
                 }
-                bool result = await _videoStreamService.AddNewComment(newComment, userIdFromToken);
-                if (result)
-                    return Ok("Comment created");
+                int id = await _videoStreamService.AddNewComment(newComment, userIdFromToken);
+                if (id != -1)
+                    return Ok(id);
                 else
                     return BadRequest("There was some unexpected error :(");
             }

@@ -46,6 +46,6 @@ namespace OmegaStreamServices.Services.VideoServices
 
         Task<List<Video>> GetVideosByName(string name);
 
-        Task<bool> AddNewComment(NewCommentDto newComment, string UserId);
+        Task<int> AddNewComment(NewCommentDto newComment, string UserId);
     }
 }

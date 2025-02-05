@@ -189,13 +189,13 @@ namespace OmegaStreamServices.Services.VideoServices
             return await _videoRepository.GetVideosByName(name); 
         }
 
-        public async Task<bool> AddNewComment(NewCommentDto newComment, string UserId)
+        public async Task<int> AddNewComment(NewCommentDto newComment, string UserId)
         {
             User user = await _userManager.FindByIdAsync(UserId)!;
             Video video = await _videoRepository.FindByIdAsync(newComment.VideoId);
             if (user == null || video == null)
             {
-                return false;
+                return -1;
             }
             Comment comment = new Comment
             {
@@ -207,7 +207,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 Video = video
             };
             await _commentRepositroy.Add(comment);
-            return true;
+            return comment.Id;
         }
 
 
