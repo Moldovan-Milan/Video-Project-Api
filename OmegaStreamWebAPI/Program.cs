@@ -13,6 +13,7 @@ using OmegaStreamServices.Services.UserServices;
 using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
+using OmegaStreamWebAPI.Middlewares;
 
 namespace OmegaStreamWebAPI
 {
@@ -115,6 +116,10 @@ namespace OmegaStreamWebAPI
             });
 
             var app = builder.Build();
+
+            // For private chat
+            app.UseWebSockets();
+            app.UseMiddleware<WebSocketMiddleware>();
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
