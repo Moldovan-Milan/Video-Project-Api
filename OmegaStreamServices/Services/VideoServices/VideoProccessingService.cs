@@ -39,7 +39,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
         }
 
-        public List<string> ReadAndChange(string inputFileName)
+        private List<string> ReadAndChange(string inputFileName)
         {
             // Egy string listát ad vissza, amibe beírja az elérési útvonalát, amellyel
             // a kliens le tudja kérdezni a .ts fájlt a szerverről
@@ -64,7 +64,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
             return result;
         }
-        public async Task WriteM3U8File(List<string> lines, string fileName)
+        private async Task WriteM3U8File(List<string> lines, string fileName)
         {
             // Ez fogja bemásolni az átírt sorokat a .m3u8 fájlba
             StreamWriter streamWriter = new StreamWriter(fileName);

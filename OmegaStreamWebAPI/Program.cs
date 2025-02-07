@@ -61,6 +61,27 @@ namespace OmegaStreamWebAPI
                 options.UseSqlite("Data Source=omega_stream.sqlite"));
 
             // Identity
+            builder.Services.Configure<IdentityOptions>(options =>
+                {
+                    // Majd az éles verzióban lesz engedélyezve
+                    // Password settings.
+                    //options.Password.RequireDigit = true;
+                    //options.Password.RequireLowercase = true;
+                    //options.Password.RequireNonAlphanumeric = true;
+                    //options.Password.RequireUppercase = true;
+                    //options.Password.RequiredLength = 6;
+                    //options.Password.RequiredUniqueChars = 1;
+
+                    // Lockout settings.
+                    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                    options.Lockout.MaxFailedAccessAttempts = 5;
+                    options.Lockout.AllowedForNewUsers = true;
+
+
+
+                }
+            );
+
             builder.Services.AddIdentity<User, IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
@@ -86,24 +107,33 @@ namespace OmegaStreamWebAPI
             });
 
             // Repositories
-            builder.Services.AddTransient<IVideoRepository, VideoRepository>();
-            builder.Services.AddTransient<IImageRepository, ImageRepository>();
-            builder.Services.AddTransient<IVideoLikesRepository, VideoLikesRepository>();
-            builder.Services.AddTransient<ICommentRepositroy, CommentRepository>();
+            builder.Services.AddScoped<IVideoRepository, VideoRepository>();
+            builder.Services.AddScoped<IImageRepository, ImageRepository>();
+            builder.Services.AddScoped<IVideoLikesRepository, VideoLikesRepository>();
+            builder.Services.AddScoped<ICommentRepositroy, CommentRepository>();
+            builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
             // Custom services
-            builder.Services.AddTransient<IVideoUploadService, VideoUploadService>();
-            builder.Services.AddTransient<IFileManagerService, FileManagerService>();
-            builder.Services.AddTransient<IUserManagerService, UserManagerService>();
-            builder.Services.AddTransient<IVideoStreamService, VideoStreamService>();
-            builder.Services.AddTransient<ICloudService, CloudService>();
-            builder.Services.AddTransient<IVideoProccessingService, VideoProccessingService>();
+            builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
+            builder.Services.AddScoped<IFileManagerService, FileManagerService>();
+            builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
+            builder.Services.AddScoped<ICloudService, CloudService>();
+            builder.Services.AddScoped<IVideoProccessingService, VideoProccessingService>();
+            builder.Services.AddScoped<IAvatarService, AvatarService>();
+            builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
+            builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
+            builder.Services.AddScoped<ICommentService, CommentService>();
+
+            builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
             // Mapper
             builder.Services.AddAutoMapper(typeof(MappingProfile));
 
             // R2 settings
             builder.Services.Configure<R2Settings>(builder.Configuration.GetSection("R2"));
+
 
             // CORS
             builder.Services.AddCors(options =>

@@ -16,13 +16,19 @@ namespace OmegaStreamWebAPI.Controllers
     {
         private readonly IVideoUploadService _videoUploadService;
         private readonly IVideoStreamService _videoStreamService;
+        private readonly ICommentService _commentService;
+        private readonly IVideoMetadataService _videoMetadataService;
+        private readonly IVideoLikeService _videoLikeService;
         private readonly ILogger<VideoController> _logger;
 
-        public VideoController([NotNull] IVideoUploadService videoUploadService, [NotNull] IVideoStreamService videoStreamService, [NotNull] ILogger<VideoController> logger)
+        public VideoController([NotNull] IVideoUploadService videoUploadService, [NotNull] IVideoStreamService videoStreamService, [NotNull] ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
             _logger = logger;
+            _commentService = commentService;
+            _videoMetadataService = videoMetadataService;
+            _videoLikeService = videoLikeService;
         }
 
         #region Video Stream
@@ -31,7 +37,7 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVideo(int id)
         {
             _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
-            var video = await _videoStreamService.GetVideoMetaData(id).ConfigureAwait(false);
+            var video = await _videoMetadataService.GetVideoMetaData(id).ConfigureAwait(false);
             if (video == null)
             {
                 _logger.LogWarning("Video metadata not found for ID: {Id}", id);
@@ -71,7 +77,7 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVideosData()
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoStreamService.GetAllVideosMetaData().ConfigureAwait(false);
+            var videos = await _videoMetadataService.GetAllVideosMetaData().ConfigureAwait(false);
             if (videos == null || !videos.Any())
             {
                 _logger.LogWarning("No videos found.");
@@ -88,7 +94,7 @@ namespace OmegaStreamWebAPI.Controllers
             _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
             try
             {
-                var video = await _videoStreamService.GetVideoMetaData(id).ConfigureAwait(false);
+                var video = await _videoMetadataService.GetVideoMetaData(id).ConfigureAwait(false);
                 if (video == null)
                 {
                     _logger.LogWarning("Video metadata not found for ID: {Id}", id);
@@ -115,7 +121,7 @@ namespace OmegaStreamWebAPI.Controllers
                     return Forbid("Token is not valid");
 
                 _logger.LogInformation("Get the value of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
-                string result = await _videoStreamService.IsUserLikedVideo(userIdFromToken, videoId);
+                string result = await _videoLikeService.IsUserLikedVideo(userIdFromToken, videoId);
                 return Ok(new { Result = result });
             }
             catch (Exception ex)
@@ -134,7 +140,7 @@ namespace OmegaStreamWebAPI.Controllers
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
                     return Forbid("User id is not valid");
-                bool success = await _videoStreamService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
+                bool success = await _videoLikeService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
                 return Ok(success);
             }
             catch (Exception ex) 
@@ -149,7 +155,7 @@ namespace OmegaStreamWebAPI.Controllers
             _logger.LogInformation("Fetching thumbnail image for ID: {ImageId}", imageId);
             try
             {
-                var (imageStream, contentType) = await _videoStreamService.GetStreamAsync(imageId, "thumbnails").ConfigureAwait(false);
+                var (imageStream, contentType) = await _videoStreamService.GetThumbnailStreamAsync(imageId).ConfigureAwait(false);
                 return File(imageStream, contentType);
             }
             catch (Exception ex)
@@ -165,7 +171,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Search is null");
             try
             {
-                return Ok(_videoStreamService.GetVideosByName(searchString));
+                return Ok(_videoMetadataService.GetVideosByName(searchString));
             }
             catch(Exception ex)
             {
@@ -186,7 +192,7 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Forbid("You are not logged in!");
                 }
-                int id = await _videoStreamService.AddNewComment(newComment, userIdFromToken);
+                int id = await _commentService.AddNewComment(newComment, userIdFromToken);
                 if (id != -1)
                     return Ok(id);
                 else

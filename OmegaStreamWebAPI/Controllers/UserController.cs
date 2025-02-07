@@ -8,6 +8,7 @@ using OmegaStreamServices.Services;
 using System.Security.Claims;
 using OmegaStreamServices.Dto;
 using AutoMapper;
+using OmegaStreamServices.Migrations;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -15,15 +16,17 @@ namespace OmegaStreamWebAPI.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IUserManagerService _userManagerService;
+        private readonly IUserService _userManagerService;
+        private IAvatarService _avatarService;
         private readonly IMapper _mapper;
        
 
-        public UserController(IUserManagerService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
-            IMapper mapper)
+        public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
+            IMapper mapper, IAvatarService avatarService)
         {
             _userManagerService = userManagerService;
             _mapper = mapper;
+            _avatarService = avatarService;
         }
 
         [Route("register")]
@@ -43,17 +46,39 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("login")]
         [HttpPost]
-        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password)
+        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, 
+            [FromForm] bool rememberMe)
         {
-            var token = await _userManagerService.LoginUser(email, password);
+            var (token, refreshToken) = await _userManagerService.LoginUser(email, password, rememberMe);
             if (token == null)
                 return Unauthorized("Invalid email or password.");
+            if (rememberMe)
+            {
+                return Ok(new {token, refreshToken });
+            }
+            
             return Ok(token);
+        }
+
+        [Route("refresh-jwt-token")]
+        [HttpPost]
+        public async Task<IActionResult> RefreshJwtToken([FromForm] string refreshToken)
+        {
+            if (refreshToken == null)
+            {
+                return BadRequest("Refresh token is null");
+            }
+            string newToken = await _userManagerService.GenerateJwtWithRefreshToken(refreshToken);
+            if (newToken == null)
+            {
+                return Forbid();
+            }
+            return Ok(newToken);
         }
 
         [Route("logout")]
         [HttpPost]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> Logout([FromForm] string refreshToken)
         {
             await _userManagerService.LogoutUser();
             return Ok();
@@ -88,7 +113,7 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-                (Stream file, string extension) = await _userManagerService.GetUserAvatarImage(id);
+                (Stream file, string extension) = await _avatarService.GetAvatarAsync(id);
                 return File(file, extension);
 
             }

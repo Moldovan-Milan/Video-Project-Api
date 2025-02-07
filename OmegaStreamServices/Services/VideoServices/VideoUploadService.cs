@@ -149,7 +149,6 @@ namespace OmegaStreamServices.Services.VideoServices
             }
             catch (IOException ex)
             {
-                
                 throw;
             }
         }
