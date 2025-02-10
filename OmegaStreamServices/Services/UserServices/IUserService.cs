@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 
 namespace OmegaStreamServices.Services.UserServices
@@ -10,5 +11,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task LogoutUser();
         Task<string?> GenerateJwtWithRefreshToken(string refreshToken);
         Task<User> GetUserById(string id);
+        Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId);
     }
 }

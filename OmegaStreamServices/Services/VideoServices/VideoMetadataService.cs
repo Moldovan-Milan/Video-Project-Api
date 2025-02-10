@@ -23,9 +23,14 @@ namespace OmegaStreamServices.Services.VideoServices
             _videoLikeRepository = videoLikeService;
         }
 
-        public async Task<List<Video>> GetAllVideosMetaData()
+        public async Task<List<VideoDto>> GetAllVideosMetaData()
         {
-            return await _videoRepository.GetAllVideosWithIncludes();
+            var videos = await _videoRepository.GetAllVideosWithIncludes();
+            List<VideoDto> result = new List<VideoDto>();
+            foreach (var video in videos) {
+                result.Add(_mapper.Map<VideoDto>(video));
+            }
+            return result;
         }
 
         public async Task<VideoDto> GetVideoMetaData(int id)

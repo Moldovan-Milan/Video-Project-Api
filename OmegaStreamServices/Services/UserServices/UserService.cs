@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.UserServices;
 using System.Text;
@@ -14,13 +16,14 @@ public class UserService : IUserService
     private readonly IConfiguration _configuration;
     private readonly IAvatarService _avatarService;
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly IMapper _mapper;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
 
     public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService, IRefreshTokenService refreshTokenService)
+        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper)
     {
         _userManager = userManager;
         _passwordHasher = passwordHasher;
@@ -28,6 +31,7 @@ public class UserService : IUserService
         _configuration = configuration;
         _avatarService = avatarService;
         _refreshTokenService = refreshTokenService;
+        _mapper = mapper;
 
         JWT_KEY = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
         ISSUER = _configuration["Jwt:Issuer"]!;
@@ -85,5 +89,17 @@ public class UserService : IUserService
     public async Task<User> GetUserById(string id)
     {
         return await _userManager.FindByIdAsync(id);
+    }
+
+    public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId)
+    {
+        User user = await _userManager.Users.Include(x => x.Videos)
+            .FirstOrDefaultAsync(x => x.Id == userId);
+        if (user != null)
+        {
+            UserWithVideosDto userWithVideosDto = _mapper.Map<User, UserWithVideosDto>(user);
+            return userWithVideosDto;
+        }
+        return null;
     }
 }

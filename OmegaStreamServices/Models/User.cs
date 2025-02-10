@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace OmegaStreamServices.Models
 {
@@ -25,5 +26,8 @@ namespace OmegaStreamServices.Models
         // Relationships
 
         public virtual ICollection<VideoLikes> VideoLikes { get; set; }
+
+        [JsonIgnore]
+        public virtual ICollection<Video> Videos { get; set; }
     }
 }

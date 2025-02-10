@@ -107,6 +107,18 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(userDto);
         }
 
+        [Route("profile/{id}")]
+        [HttpGet]
+        public async Task<IActionResult> GetUserProfileWithVideos(string id)
+        {
+            UserWithVideosDto user = await _userManagerService.GetUserProfileWithVideos(id);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            return Ok(user);
+        }
+
         [Route("avatar/{id}")]
         [HttpGet]
         public async Task<IActionResult> GetAvatarImage(int id)

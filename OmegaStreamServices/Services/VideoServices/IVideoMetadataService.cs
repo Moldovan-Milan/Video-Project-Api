@@ -10,7 +10,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public interface IVideoMetadataService
     {
-        Task<List<Video>> GetAllVideosMetaData();
+        Task<List<VideoDto>> GetAllVideosMetaData();
         Task<VideoDto> GetVideoMetaData(int id);
         Task<List<Video>> GetVideosByName(string name);
     }
