@@ -8,7 +8,6 @@ using OmegaStreamServices.Services;
 using System.Security.Claims;
 using OmegaStreamServices.Dto;
 using AutoMapper;
-using OmegaStreamServices.Migrations;
 
 namespace OmegaStreamWebAPI.Controllers
 {
