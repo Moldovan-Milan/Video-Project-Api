@@ -57,6 +57,12 @@ namespace OmegaStreamServices.Services.VideoServices
             // A készülő .mp4 fájl végleges útvonala
             var finalPath = Path.Combine($"temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
 
+            // Ha a fájl már létezik, akkor nem kell semmit sem csinálni
+            if (File.Exists(finalPath))
+            {
+                return;
+            }
+
             // Ez hozza létre az mp4 videót
             await AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
 
