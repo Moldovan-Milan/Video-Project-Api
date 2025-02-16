@@ -13,7 +13,7 @@ using OmegaStreamServices.Services.UserServices;
 using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
-using OmegaStreamWebAPI.Middlewares;
+using OmegaStreamWebAPI.WebSockets;
 
 namespace OmegaStreamWebAPI
 {
@@ -126,6 +126,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
 
+            // Websocket for chat
+            builder.Services.AddSingleton<ChatWebsocketHanlder>();
+
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
             // Mapper
@@ -149,7 +152,10 @@ namespace OmegaStreamWebAPI
 
             // For private chat
             app.UseWebSockets();
-            app.UseMiddleware<WebSocketMiddleware>();
+
+            var webSocketHandler = app.Services.GetRequiredService<ChatWebsocketHanlder>();
+            app.Map("/ws", async context => await webSocketHandler.HandleWebsocketAsync(context));
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
