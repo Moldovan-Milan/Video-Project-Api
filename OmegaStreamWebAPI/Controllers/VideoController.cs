@@ -171,7 +171,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Search is null");
             try
             {
-                return Ok(_videoMetadataService.GetVideosByName(searchString));
+                return Ok(await _videoMetadataService.GetVideosByName(searchString));
             }
             catch(Exception ex)
             {
