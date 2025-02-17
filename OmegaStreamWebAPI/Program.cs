@@ -113,6 +113,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<ICommentRepositroy, CommentRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
+            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+            builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
+
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
             builder.Services.AddScoped<IFileManagerService, FileManagerService>();
@@ -127,7 +130,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<ICommentService, CommentService>();
 
             // Websocket for chat
-            builder.Services.AddSingleton<ChatWebsocketHanlder>();
+            builder.Services.AddSingleton<ChatWebsocketHandler>();
 
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
@@ -153,7 +156,7 @@ namespace OmegaStreamWebAPI
             // For private chat
             app.UseWebSockets();
 
-            var webSocketHandler = app.Services.GetRequiredService<ChatWebsocketHanlder>();
+            var webSocketHandler = app.Services.GetRequiredService<ChatWebsocketHandler>();
             app.Map("/ws", async context => await webSocketHandler.HandleWebsocketAsync(context));
 
 

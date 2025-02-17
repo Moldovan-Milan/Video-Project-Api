@@ -128,7 +128,7 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return HandleException(ex, "userLike");
             }
-            
+
         }
 
         [HttpPost("set-user-like/{videoId}")]
@@ -143,9 +143,9 @@ namespace OmegaStreamWebAPI.Controllers
                 bool success = await _videoLikeService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
                 return Ok(success);
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
-                return HandleException(ex, "set-video-like");   
+                return HandleException(ex, "set-video-like");
             }
         }
 
@@ -171,9 +171,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Search is null");
             try
             {
-                return Ok(_videoMetadataService.GetVideosByName(searchString));
+                return Ok(await _videoMetadataService.GetVideosByName(searchString));
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return HandleException(ex, "search");
             }

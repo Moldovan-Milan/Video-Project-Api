@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Services.VideoServices
 {
-    public class VideoMetadataService: IVideoMetadataService
+    public class VideoMetadataService : IVideoMetadataService
     {
         private readonly IVideoRepository _videoRepository;
         private readonly IVideoLikesRepository _videoLikeRepository;
@@ -26,11 +26,7 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task<List<VideoDto>> GetAllVideosMetaData()
         {
             var videos = await _videoRepository.GetAllVideosWithIncludes();
-            List<VideoDto> result = new List<VideoDto>();
-            foreach (var video in videos) {
-                result.Add(_mapper.Map<VideoDto>(video));
-            }
-            return result;
+            return ConvertVideoListToDto(videos);
         }
 
         public async Task<VideoDto> GetVideoMetaData(int id)
@@ -42,9 +38,20 @@ namespace OmegaStreamServices.Services.VideoServices
             return videoDto;
         }
 
-        public async Task<List<Video>> GetVideosByName(string name)
+        public async Task<List<VideoDto>> GetVideosByName(string name)
         {
-            return await _videoRepository.GetVideosByName(name);
+            var videos = await _videoRepository.GetVideosByName(name);
+            return ConvertVideoListToDto(videos);
+        }
+
+        private List<VideoDto> ConvertVideoListToDto(List<Video> videos)
+        {
+            List<VideoDto> result = new();
+            foreach (var video in videos)
+            {
+                result.Add(_mapper.Map<VideoDto>(video));
+            }
+            return result;
         }
     }
 }
