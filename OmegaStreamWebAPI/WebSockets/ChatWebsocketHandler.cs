@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 
 namespace OmegaStreamWebAPI.WebSockets
@@ -12,10 +13,13 @@ namespace OmegaStreamWebAPI.WebSockets
     {
         private readonly Dictionary<string, WebSocket> _userSockets = new();
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IEncryptionHelper _encryptionHelper;
+        private const int BufferSize = 4096;
 
-        public ChatWebsocketHandler(IServiceScopeFactory scopeFactory)
+        public ChatWebsocketHandler(IServiceScopeFactory scopeFactory, IEncryptionHelper encryptionHelper)
         {
             _scopeFactory = scopeFactory;
+            _encryptionHelper = encryptionHelper;
             Task.Run(MonitorConnectionsAsync); // Háttérfolyamat indítása
         }
 
@@ -28,10 +32,7 @@ namespace OmegaStreamWebAPI.WebSockets
             }
 
             var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            var buffer = new byte[4096];
-            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            var receivedJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-            var initMessage = JsonConvert.DeserializeObject<WebSocketMessage>(receivedJson);
+            var initMessage = await ReceiveMessageAsync<WebSocketMessage>(webSocket);
 
             if (initMessage?.Type == "connect" && !string.IsNullOrEmpty(initMessage.Content))
             {
@@ -40,7 +41,7 @@ namespace OmegaStreamWebAPI.WebSockets
                 {
                     _userSockets[userId] = webSocket;
                     Console.WriteLine($"Felhasználó csatlakozott: {userId}");
-                    await SendResponseAsync(webSocket, "debug", "Connected to webSocket");
+                    await SendMessageAsync(webSocket, "debug", "Connected to WebSocket");
                 }
             }
 
@@ -48,103 +49,127 @@ namespace OmegaStreamWebAPI.WebSockets
             {
                 await ReceiveMessagesAsync(webSocket);
             }
-            catch (WebSocketException ex)
-            {
-                await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, $"Server error {ex.Message}", CancellationToken.None);
-            }
             catch (Exception ex)
             {
                 Console.WriteLine($"WebSocket error: {ex.Message}");
             }
             finally
             {
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed", CancellationToken.None);
+                await CloseAndRemoveSocketAsync(webSocket);
             }
         }
 
         private async Task ReceiveMessagesAsync(WebSocket webSocket)
         {
-            var buffer = new byte[4096];
             while (webSocket.State == WebSocketState.Open)
             {
-                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                if (result.MessageType == WebSocketMessageType.Text)
+                var message = await ReceiveMessageAsync<WebSocketMessage>(webSocket);
+                if (message != null)
                 {
-                    var receivedJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    var message = JsonConvert.DeserializeObject<WebSocketMessage>(receivedJson);
-                    if (message != null)
-                    {
-                        await ProcessMessageAsync(webSocket, message);
-                    }
-                }
-                else if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    break;
+                    await ProcessMessageAsync(webSocket, message);
                 }
             }
         }
 
         private async Task ProcessMessageAsync(WebSocket webSocket, WebSocketMessage message)
         {
-            using (var scope = _scopeFactory.CreateScope()) // Scoped szolgáltatás létrehozása
+            using var scope = _scopeFactory.CreateScope();
+            var userChatsRepository = scope.ServiceProvider.GetRequiredService<IUserChatsRepository>();
+            var chatMessageRepository = scope.ServiceProvider.GetRequiredService<IChatMessageRepository>();
+
+            switch (message.Type)
             {
-                var userChatsRepository = scope.ServiceProvider.GetRequiredService<IUserChatsRepository>();
-                var chatMessageRepository = scope.ServiceProvider.GetRequiredService<IChatMessageRepository>();
-
-                if (message.Type == "message" && !string.IsNullOrEmpty(message.ChatId) && !string.IsNullOrEmpty(message.Content))
-                {
-                    var chat = await userChatsRepository.FindByIdAsync(int.Parse(message.ChatId));
-                    if (chat != null)
+                case "message":
+                    if (IsValidMessage(message))
                     {
-                        string recipientId = chat.User1Id == message.SenderId ? chat.User2Id : chat.User1Id;
-
-                        // Az üzenet objektum elkészítése
-                        ChatMessage chatMessage = new ChatMessage
-                        {
-                            SenderId = message.SenderId,
-                            Content = message.Content,
-                            UserChatId = chat.Id,
-                            SentAt = DateTime.UtcNow
-                        };
-
-                        // Elküldjük mindkét félnek
-                        string jsonMessage = JsonConvert.SerializeObject(chatMessage);
-
-                        if (_userSockets.TryGetValue(message.SenderId, out WebSocket? senderSocket))
-                        {
-                            await SendResponseAsync(senderSocket, "message", jsonMessage);
-                        }
-                        if (_userSockets.TryGetValue(recipientId, out WebSocket? recipientSocket))
-                        {
-                            await SendResponseAsync(recipientSocket, "message", jsonMessage);
-                        }
-
-                        await chatMessageRepository.Add(chatMessage);
+                        await HandleChatMessageAsync(message, userChatsRepository, chatMessageRepository);
                     }
-                }
-                else if (message.Type == "get_history" && !string.IsNullOrEmpty(message.ChatId))
-                {
-                    string history = await GetHistoryJson(int.Parse(message.ChatId));
-                    await SendResponseAsync(webSocket, "history", history);
-                }
+                    else
+                    {
+                        await SendMessageAsync(webSocket, "error", "Not valid content");
+                    }
+                        break;
+                case "get_history":
+                    await SendChatHistoryAsync(webSocket, message.ChatId, chatMessageRepository);
+                    break;
             }
         }
 
-        private async Task SendResponseAsync(WebSocket webSocket, string type, string content)
+        private async Task HandleChatMessageAsync(
+            WebSocketMessage message,
+            IUserChatsRepository userChatsRepository,
+            IChatMessageRepository chatMessageRepository)
+        {
+            if (string.IsNullOrEmpty(message.ChatId) || string.IsNullOrEmpty(message.Content))
+                return;
+
+            var chat = await userChatsRepository.FindByIdAsync(int.Parse(message.ChatId));
+            if (chat == null) return;
+
+            string recipientId = chat.User1Id == message.SenderId ? chat.User2Id : chat.User1Id;
+
+            var chatMessage = new ChatMessage
+            {
+                SenderId = message.SenderId,
+                Content = message.Content,
+                UserChatId = chat.Id,
+                SentAt = DateTime.UtcNow
+            };
+
+            string jsonMessage = JsonConvert.SerializeObject(chatMessage);
+
+            if (_userSockets.TryGetValue(message.SenderId, out var senderSocket))
+                await SendMessageAsync(senderSocket, "message", jsonMessage);
+
+            if (_userSockets.TryGetValue(recipientId, out var recipientSocket))
+                await SendMessageAsync(recipientSocket, "message", jsonMessage);
+
+            chatMessage.Content = _encryptionHelper.Encrypt(chatMessage.Content);
+            await chatMessageRepository.Add(chatMessage);
+        }
+
+        private async Task SendChatHistoryAsync(WebSocket webSocket, string? chatId, IChatMessageRepository chatMessageRepository)
+        {
+            if (string.IsNullOrEmpty(chatId))
+                return;
+
+            var chatMessages = await chatMessageRepository.GetMessagesByChatId(int.Parse(chatId));
+            chatMessages = DecryptMessages(chatMessages);
+
+            string historyJson = JsonConvert.SerializeObject(chatMessages);
+            await SendMessageAsync(webSocket, "history", historyJson);
+        }
+
+        private async Task<T?> ReceiveMessageAsync<T>(WebSocket webSocket)
+        {
+            var buffer = new byte[BufferSize];
+            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+
+            if (result.MessageType == WebSocketMessageType.Close)
+                return default;
+
+            string receivedJson = Encoding.UTF8.GetString(buffer, 0, result.Count);
+            return JsonConvert.DeserializeObject<T>(receivedJson);
+        }
+
+        private async Task SendMessageAsync(WebSocket webSocket, string type, string content)
         {
             var response = JsonConvert.SerializeObject(new WebSocketMessage { Type = type, Content = content });
             var bytes = Encoding.UTF8.GetBytes(response);
+
             await webSocket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        private async Task<string> GetHistoryJson(int chatId)
+        private async Task CloseAndRemoveSocketAsync(WebSocket webSocket)
         {
-            using (var scope = _scopeFactory.CreateScope())
+            var userId = _userSockets.FirstOrDefault(x => x.Value == webSocket).Key;
+            if (!string.IsNullOrEmpty(userId))
             {
-                var chatMessageRepository = scope.ServiceProvider.GetRequiredService<IChatMessageRepository>();
-                List<ChatMessage> chatMessage = await chatMessageRepository.GetMessagesByChatId(chatId);
-                return JsonConvert.SerializeObject(chatMessage);
+                _userSockets.Remove(userId);
+                Console.WriteLine($"Felhasználó kilépett: {userId}");
             }
+
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Connection closed", CancellationToken.None);
         }
 
         private string? GetIdFromToken(string token)
@@ -159,30 +184,50 @@ namespace OmegaStreamWebAPI.WebSockets
                 : null;
         }
 
-        // 30 másodpercenként végignézi, hogy melyik kapcsolat nem él már
-        // Ha nem él, akkor eltávolítja
+        private List<ChatMessage> DecryptMessages(List<ChatMessage> chatMessages)
+        {
+            foreach (var message in chatMessages)
+            {
+                message.Content = _encryptionHelper.Decrypt(message.Content);
+            }
+            return chatMessages;
+        }
+
+        private bool IsValidMessage(WebSocketMessage message)
+        {
+            return !string.IsNullOrEmpty(message.Type) &&
+                   message.Type.All(char.IsLetterOrDigit) &&
+                   !string.IsNullOrEmpty(message.Content) &&
+                   message.Content.Length <= 2000; // Limitáljuk az üzenetek méretét
+        }
+
         private async Task MonitorConnectionsAsync()
         {
             while (true)
             {
-                await Task.Delay(TimeSpan.FromSeconds(30));
+                await Task.Delay(TimeSpan.FromSeconds(10));
 
-                try
+                foreach (var (userId, socket) in _userSockets.ToList())
                 {
-                    foreach (var (userId, socket) in _userSockets.ToList())
+                    if (socket.State != WebSocketState.Open)
                     {
-                        if (socket.State != WebSocketState.Open)
+                        Console.WriteLine($"Felhasználó inaktív, törlés: {userId}");
+                        _userSockets.Remove(userId);
+                        await CloseAndRemoveSocketAsync(socket);
+                    }
+                    else
+                    {
+                        try
                         {
-                            Console.WriteLine($"Felhasználó inaktív, törlés: {userId}");
+                           await socket.SendAsync(Encoding.UTF8.GetBytes("ping"), WebSocketMessageType.Text, true, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Kapcsolati hiba. ${userId} eltávolítása");
                             _userSockets.Remove(userId);
                         }
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("There was an error ", ex.Message);
-                }
-                
             }
         }
     }

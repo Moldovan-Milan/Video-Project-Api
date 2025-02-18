@@ -78,12 +78,12 @@ public class UserService : IUserService
         return await _avatarService.GetAvatarAsync(id);
     }
 
-    public async Task<string?> GenerateJwtWithRefreshToken(string refreshToken)
+    public async Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken)
     {
         var (isValid, token) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
-        if (!isValid) return null;
+        if (!isValid) return (null, null);
 
-        return TokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER);
+        return (TokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
     }
 
     public async Task<User> GetUserById(string id)

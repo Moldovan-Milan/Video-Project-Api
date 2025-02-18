@@ -68,12 +68,13 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return BadRequest("Refresh token is null");
             }
-            string newToken = await _userManagerService.GenerateJwtWithRefreshToken(refreshToken);
+            var (newToken, user) = await _userManagerService.GenerateJwtWithRefreshToken(refreshToken);
             if (newToken == null)
             {
                 return Forbid();
             }
-            return Ok(newToken);
+            UserDto userDto = _mapper.Map<UserDto>(user);
+            return Ok(new { newToken, userDto});
         }
 
         [Route("logout")]
