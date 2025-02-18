@@ -13,7 +13,7 @@ using OmegaStreamServices.Services.UserServices;
 using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
-using OmegaStreamWebAPI.Middlewares;
+using OmegaStreamWebAPI.WebSockets;
 
 namespace OmegaStreamWebAPI
 {
@@ -113,6 +113,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<ICommentRepositroy, CommentRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
+            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+            builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
+
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
             builder.Services.AddScoped<IFileManagerService, FileManagerService>();
@@ -125,6 +128,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
+
+            // Websocket for chat
+            builder.Services.AddSingleton<ChatWebsocketHandler>();
 
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
@@ -149,7 +155,10 @@ namespace OmegaStreamWebAPI
 
             // For private chat
             app.UseWebSockets();
-            app.UseMiddleware<WebSocketMiddleware>();
+
+            var webSocketHandler = app.Services.GetRequiredService<ChatWebsocketHandler>();
+            app.Map("/ws", async context => await webSocketHandler.HandleWebsocketAsync(context));
+
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
