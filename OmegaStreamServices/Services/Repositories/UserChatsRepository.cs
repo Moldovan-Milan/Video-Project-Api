@@ -18,7 +18,8 @@ namespace OmegaStreamServices.Services.Repositories
 
         public async Task<List<UserChats>> GetAllChatByUserIdAsync(string userId)
         {
-            return await _dbSet.Where(x => x.User1Id == userId || x.User2Id == userId)
+            return await _dbSet.Include(x => x.User1).Include(x => x.User2) 
+                .Where(x => x.User1Id == userId || x.User2Id == userId)
                 .ToListAsync();
         }
     }

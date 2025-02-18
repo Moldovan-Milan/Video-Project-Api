@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Services.Repositories;
 using System.Security.Claims;
 
@@ -12,10 +14,12 @@ namespace OmegaStreamWebAPI.Controllers
     public class ChatController : ControllerBase
     {
         private readonly IUserChatsRepository _userChatsRepository;
+        private readonly IMapper _mapper;
 
-        public ChatController(IUserChatsRepository userChatsRepository)
+        public ChatController(IUserChatsRepository userChatsRepository, IMapper mapper)
         {
             _userChatsRepository = userChatsRepository;
+            _mapper = mapper;
         }
 
         [Route("user-chats")]
@@ -27,7 +31,10 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return BadRequest();
             }
-            return Ok(await _userChatsRepository.GetAllChatByUserIdAsync(userIdFromToken));
+            var userChats = await _userChatsRepository.GetAllChatByUserIdAsync(userIdFromToken);
+            var userChatsDto = _mapper.Map<List<UserChatsDto>>(userChats);
+
+            return Ok(userChatsDto);
         }
     }
 }

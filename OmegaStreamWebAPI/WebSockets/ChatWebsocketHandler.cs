@@ -48,6 +48,10 @@ namespace OmegaStreamWebAPI.WebSockets
             {
                 await ReceiveMessagesAsync(webSocket);
             }
+            catch (WebSocketException ex)
+            {
+                await webSocket.CloseAsync(WebSocketCloseStatus.InternalServerError, $"Server error {ex.Message}", CancellationToken.None);
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"WebSocket error: {ex.Message}");
@@ -93,19 +97,29 @@ namespace OmegaStreamWebAPI.WebSockets
                     if (chat != null)
                     {
                         string recipientId = chat.User1Id == message.SenderId ? chat.User2Id : chat.User1Id;
+
+                        // Az üzenet objektum elkészítése
+                        ChatMessage chatMessage = new ChatMessage
+                        {
+                            SenderId = message.SenderId,
+                            Content = message.Content,
+                            UserChatId = chat.Id,
+                            SentAt = DateTime.UtcNow
+                        };
+
+                        // Elküldjük mindkét félnek
+                        string jsonMessage = JsonConvert.SerializeObject(chatMessage);
+
+                        if (_userSockets.TryGetValue(message.SenderId, out WebSocket? senderSocket))
+                        {
+                            await SendResponseAsync(senderSocket, "message", jsonMessage);
+                        }
                         if (_userSockets.TryGetValue(recipientId, out WebSocket? recipientSocket))
                         {
-                            await SendResponseAsync(recipientSocket, "message", message.Content);
-
-                            ChatMessage chatMessage = new ChatMessage
-                            {
-                                SenderId = message.SenderId,
-                                Content = message.Content,
-                                UserChatId = chat.Id,
-                                SentAt = DateTime.UtcNow
-                            };
-                            await chatMessageRepository.Add(chatMessage);
+                            await SendResponseAsync(recipientSocket, "message", jsonMessage);
                         }
+
+                        await chatMessageRepository.Add(chatMessage);
                     }
                 }
                 else if (message.Type == "get_history" && !string.IsNullOrEmpty(message.ChatId))
@@ -153,14 +167,22 @@ namespace OmegaStreamWebAPI.WebSockets
             {
                 await Task.Delay(TimeSpan.FromSeconds(30));
 
-                foreach (var (userId, socket) in _userSockets.ToList())
+                try
                 {
-                    if (socket.State != WebSocketState.Open)
+                    foreach (var (userId, socket) in _userSockets.ToList())
                     {
-                        Console.WriteLine($"Felhasználó inaktív, törlés: {userId}");
-                        _userSockets.Remove(userId);
+                        if (socket.State != WebSocketState.Open)
+                        {
+                            Console.WriteLine($"Felhasználó inaktív, törlés: {userId}");
+                            _userSockets.Remove(userId);
+                        }
                     }
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("There was an error ", ex.Message);
+                }
+                
             }
         }
     }

@@ -54,18 +54,18 @@ public class UserService : IUserService
         return await _userManager.CreateAsync(user);
     }
 
-    public async Task<(string, string)> LoginUser(string email, string password, bool rememberMe)
+    public async Task<(string, string, User)> LoginUser(string email, string password, bool rememberMe)
     {
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
-            return (null, null)!;
+            return (null, null, null)!;
 
         var result = await _signInManager.PasswordSignInAsync(user.UserName, password, rememberMe, true);
-        if (!result.Succeeded) return (null, null)!;
+        if (!result.Succeeded) return (null, null, null)!;
 
         string accessToken = TokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
         string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
-        return (accessToken, refreshToken);
+        return (accessToken, refreshToken, user);
     }
 
     public async Task LogoutUser()
