@@ -37,7 +37,7 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVideo(int id)
         {
             _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
-            var video = await _videoMetadataService.GetVideoMetaData(id).ConfigureAwait(false);
+            var video = await _videoMetadataService.GetVideoMetaData(id);
             if (video == null)
             {
                 _logger.LogWarning("Video metadata not found for ID: {Id}", id);
@@ -49,7 +49,7 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 _logger.LogInformation("Fetching video stream for key: {Key}", videoKey);
-                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey).ConfigureAwait(false);
+                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey);
                 return File(videoStream, contentType, enableRangeProcessing: true);
             }
             catch (Exception ex)
@@ -77,11 +77,11 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVideosData()
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData().ConfigureAwait(false);
-            if (videos == null || !videos.Any())
+            var videos = await _videoMetadataService.GetAllVideosMetaData();
+            if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
-                return videos == null ? NotFound() : NoContent();
+                return NotFound();
             }
 
             _logger.LogInformation("Successfully fetched video metadata.");
@@ -94,7 +94,7 @@ namespace OmegaStreamWebAPI.Controllers
             _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
             try
             {
-                var video = await _videoMetadataService.GetVideoMetaData(id).ConfigureAwait(false);
+                var video = await _videoMetadataService.GetVideoMetaData(id);
                 if (video == null)
                 {
                     _logger.LogWarning("Video metadata not found for ID: {Id}", id);
@@ -185,9 +185,8 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                _logger.LogDebug("User id is: {UserId}, video id is: {VideoId}", userIdFromToken, newComment.VideoId);
+                //_logger.LogDebug("User id is: {UserId}, video id is: {VideoId}", userIdFromToken, newComment.VideoId);
                 if (userIdFromToken == null)
                 {
                     return Forbid("You are not logged in!");

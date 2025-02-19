@@ -50,8 +50,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
         private string GetFolder(string fileName)
         {
-            // Vegyük az utolsó három karakter előtti részt, a kiterjesztés figyelembevételével
-            int suffixLength = 3; // Az utolsó három számjegy
+            int suffixLength = 3;
             int extensionIndex = fileName.LastIndexOf('.');
             if (extensionIndex == -1)
                 extensionIndex = fileName.Length;

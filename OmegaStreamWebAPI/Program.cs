@@ -118,10 +118,9 @@ namespace OmegaStreamWebAPI
 
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
-            builder.Services.AddScoped<IFileManagerService, FileManagerService>();
+            //builder.Services.AddScoped<IFileManagerService, FileManagerService>();
             builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
-            builder.Services.AddScoped<IVideoProccessingService, VideoProccessingService>();
             builder.Services.AddScoped<IAvatarService, AvatarService>();
             builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             builder.Services.AddScoped<IUserService, UserService>();

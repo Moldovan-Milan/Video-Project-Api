@@ -15,7 +15,7 @@ namespace OmegaStreamWebAPI.Controllers
     [ApiController]
     public class UserController : ControllerBase
     {
-        private readonly IUserService _userManagerService;
+        private readonly IUserService _userService;
         private IAvatarService _avatarService;
         private readonly IMapper _mapper;
        
@@ -23,7 +23,7 @@ namespace OmegaStreamWebAPI.Controllers
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
             IMapper mapper, IAvatarService avatarService)
         {
-            _userManagerService = userManagerService;
+            _userService = userManagerService;
             _mapper = mapper;
             _avatarService = avatarService;
         }
@@ -35,7 +35,7 @@ namespace OmegaStreamWebAPI.Controllers
             IdentityResult result;
             using (var avatarStream = avatar.OpenReadStream())
             {
-                result = await _userManagerService.RegisterUser(username, email, password, avatarStream);
+                result = await _userService.RegisterUser(username, email, password, avatarStream);
             }
             if (result.Succeeded)
                 return Ok();
@@ -48,7 +48,7 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, 
             [FromForm] bool rememberMe)
         {
-            var (token, refreshToken, user) = await _userManagerService.LoginUser(email, password, rememberMe);
+            var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
             if (token == null)
                 return Unauthorized("Invalid email or password.");
             UserDto userDto = _mapper.Map<User, UserDto>(user);
@@ -68,7 +68,7 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return BadRequest("Refresh token is null");
             }
-            var (newToken, user) = await _userManagerService.GenerateJwtWithRefreshToken(refreshToken);
+            var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
             if (newToken == null)
             {
                 return Forbid();
@@ -79,15 +79,16 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("logout")]
         [HttpPost]
-        public async Task<IActionResult> Logout([FromForm] string refreshToken)
+        public async Task<IActionResult> Logout()
         {
-            await _userManagerService.LogoutUser();
+            await _userService.LogoutUser();
             return Ok();
         }
 
         [Route("profile")]
         [HttpGet]
         [Authorize]
+        // TODO: Profilszerkesztéshez esetleg plusz adatotak is elküldeni
         public async Task<IActionResult> Profile()
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -97,27 +98,18 @@ namespace OmegaStreamWebAPI.Controllers
                 return Forbid("You are not logged in!");
             }
 
-            User user = await _userManagerService.GetUserById(userIdFromToken);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            
-            UserDto userDto = _mapper.Map<UserDto>(user);
+            User user = await _userService.GetUserById(userIdFromToken);
 
-            return Ok(userDto);
+            return user == null ? NotFound() : Ok(_mapper.Map<UserDto>(user));
         }
 
         [Route("profile/{id}")]
         [HttpGet]
         public async Task<IActionResult> GetUserProfileWithVideos(string id)
         {
-            UserWithVideosDto user = await _userManagerService.GetUserProfileWithVideos(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            return Ok(user);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id);
+
+            return user == null ? NotFound() : Ok(user);
         }
 
         [Route("avatar/{id}")]

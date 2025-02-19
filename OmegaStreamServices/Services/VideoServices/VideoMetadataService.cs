@@ -23,13 +23,13 @@ namespace OmegaStreamServices.Services.VideoServices
             _videoLikeRepository = videoLikeService;
         }
 
-        public async Task<List<VideoDto>> GetAllVideosMetaData()
+        public async Task<List<VideoDto?>> GetAllVideosMetaData()
         {
             var videos = await _videoRepository.GetAllVideosWithIncludes();
-            return ConvertVideoListToDto(videos);
+            return _mapper.Map<List<VideoDto?>>(videos);
         }
 
-        public async Task<VideoDto> GetVideoMetaData(int id)
+        public async Task<VideoDto?> GetVideoMetaData(int id)
         {
             Video video = await _videoRepository.GetVideoWithInclude(id);
             VideoDto videoDto = _mapper.Map<VideoDto>(video);
@@ -37,20 +37,10 @@ namespace OmegaStreamServices.Services.VideoServices
             videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
             return videoDto;
         }
-        public async Task<List<VideoDto>> GetVideosByName(string name)
+        public async Task<List<VideoDto?>> GetVideosByName(string name)
         {
             var videos = await _videoRepository.GetVideosByName(name);
-            return ConvertVideoListToDto(videos);
-        }
-
-        private List<VideoDto> ConvertVideoListToDto(List<Video> videos)
-        {
-            List<VideoDto> result = new();
-            foreach (var video in videos)
-            {
-                result.Add(_mapper.Map<VideoDto>(video));
-            }
-            return result;
+            return _mapper.Map<List<VideoDto?>>(videos);
         }
     }
 }

@@ -12,12 +12,10 @@ namespace OmegaStreamServices.Services.VideoServices
     public class VideoLikeService : IVideoLikeService
     {
         private readonly IVideoLikesRepository _videoLikesRepository;
-        private readonly UserManager<User> _userManager;
 
         public VideoLikeService(IVideoLikesRepository videoLikesRepository, UserManager<User> userManager)
         {
             _videoLikesRepository = videoLikesRepository;
-            _userManager = userManager;
         }
 
         public async Task<string> IsUserLikedVideo(string userId, int videoId)
@@ -29,45 +27,39 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             try
             {
-                bool isLikeExist = true;
-                VideoLikes videoLikes = await _videoLikesRepository.GetVideoLike(userId, videoId);
-                if (videoLikes != null && likeValue == "none")
+                var videoLikes = await _videoLikesRepository.GetVideoLike(userId, videoId);
+
+                if (videoLikes == null)
                 {
-                    _videoLikesRepository.Delete(videoLikes);
-                    return true;
-                }
-                if (videoLikes == null && likeValue == "none")
-                {
-                    return false;
-                }
-                if (videoLikes == null && likeValue != "none")
-                {
-                    isLikeExist = false;
+                    // Nem létezik, ezért semmi nem kell tennünk
+                    // Ez elméletileg sosem fog igaz lenni, de
+                    // inkább kezeljük le
+                    if (likeValue == "none")
+                    {
+                        return false;
+                    }
+
                     videoLikes = new VideoLikes
                     {
                         UserId = userId,
                         VideoId = videoId,
+                        IsDislike = likeValue == "dislike"
                     };
-                }
 
-                switch (likeValue)
-                {
-                    case "like":
-                        videoLikes.IsDislike = false;
-                        break;
-                    case "dislike":
-                        videoLikes.IsDislike = true;
-                        break;
-                }
-                // Ha nincs felvéve, akkor létre kell hozni, hogy ne fusson le hibával
-                if (!isLikeExist)
-                {
                     await _videoLikesRepository.Add(videoLikes);
                 }
                 else
                 {
+                    if (likeValue == "none")
+                    {
+                        _videoLikesRepository.Delete(videoLikes);
+                        return true;
+                    }
+
+                    videoLikes.IsDislike = likeValue == "dislike";
                     _videoLikesRepository.Update(videoLikes);
                 }
+
                 return true;
             }
             catch
@@ -75,5 +67,6 @@ namespace OmegaStreamServices.Services.VideoServices
                 return false;
             }
         }
+
     }
 }

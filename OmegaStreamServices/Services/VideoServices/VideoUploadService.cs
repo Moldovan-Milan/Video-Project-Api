@@ -13,17 +13,13 @@ namespace OmegaStreamServices.Services.VideoServices
 
         private readonly IVideoRepository _videoRepository;
         private readonly IImageRepository _imageRepository;
-        private readonly IFileManagerService _fileManagerService;
         private readonly ICloudService _cloudServices;
-        private readonly IVideoProccessingService _videoProccessingService;
 
-        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, IFileManagerService fileManagerService, ICloudService cloudServices, IVideoProccessingService videoProccessingService)
+        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices)
         {
             _videoRepository = videoRepository;
             _imageRepository = imageRepository;
-            _fileManagerService = fileManagerService;
             _cloudServices = cloudServices;
-            _videoProccessingService = videoProccessingService;
         }
 
         /// <summary>
@@ -35,7 +31,7 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task UploadChunk(Stream chunk, string fileName, int chunkNumber)
         {
             var chunkPath = Path.Combine("temp", $"{fileName}.part{chunkNumber}");
-            await _fileManagerService.SaveStreamToFileAsync(chunkPath, chunk);
+            await FileManager.SaveStreamToFileAsync(chunkPath, chunk);
         }
 
         /// <summary>
@@ -50,10 +46,10 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task AssembleFile(string fileName, Stream image, int totalChunks, string title, string extension, string userId)
         {
             // Generate a unique name for the video and thumbnail
-            string uniqueFileName = _fileManagerService.GenerateFileName();
+            string uniqueFileName = FileManager.GenerateFileName();
 
             // Először egy külön mappát hoz létre
-            _fileManagerService.CreateDirectory($"temp/{uniqueFileName}");
+            FileManager.CreateDirectory($"temp/{uniqueFileName}");
             // A készülő .mp4 fájl végleges útvonala
             var finalPath = Path.Combine($"temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
 
@@ -73,7 +69,7 @@ namespace OmegaStreamServices.Services.VideoServices
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
 
             // Átalakítja az mp4-et .m3u8 formátummá
-            await _videoProccessingService.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 30);
+            await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 30);
 
             // Ha minden megvan, akkor feltöltük a fájlokat
             await UploadVideoToR2(uniqueFileName);
@@ -121,18 +117,18 @@ namespace OmegaStreamServices.Services.VideoServices
                     var fileContent = File.ReadAllBytes(file);
                     using var memoryStream = new MemoryStream(fileContent);
                     await _cloudServices.UploadToR2(key, memoryStream);
-                    _fileManagerService.DeleteFile(file);
+                    FileManager.DeleteFile(file);
                 }
                 else if (file.Contains(".mp4"))
                 {
-                    _fileManagerService.DeleteFile(file);
+                    FileManager.DeleteFile(file);
                 }
             });
 
             await Task.WhenAll(uploadTasks);
 
             // Ha minden megvan, akkor kitörli a mappát, amiben a .mp4 és .ts fájlok voltak
-            _fileManagerService.DeleteDirectory($"temp/{folderName}");
+            FileManager.DeleteDirectory($"temp/{folderName}");
         }
 
         public async Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount)
@@ -146,10 +142,10 @@ namespace OmegaStreamServices.Services.VideoServices
                         // Az ideiglenes chunk elérési útvonala
                         // Ha lemásolta, akkor utána lerörli
                         var chunkPath = Path.Combine(tempPath, $"{fileName}.part{i}");
-                        using var chunkStream = _fileManagerService.OpenFileStream(chunkPath);
+                        using var chunkStream = FileManager.OpenFileStream(chunkPath);
                         await chunkStream.CopyToAsync(finalStream);
                         chunkStream.Dispose();
-                        _fileManagerService.DeleteFile(chunkPath);
+                        FileManager.DeleteFile(chunkPath);
                     }
                 }
             }

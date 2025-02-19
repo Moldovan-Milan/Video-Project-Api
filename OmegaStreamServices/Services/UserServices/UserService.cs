@@ -39,8 +39,10 @@ public class UserService : IUserService
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
-        if (await _userManager.Users.AnyAsync(u => u.Email == email))
+        if (await _userManager.FindByEmailAsync(email) != null)
+        {
             return IdentityResult.Failed(new IdentityError { Description = "Email already exists." });
+        }
 
         string avatarFileName = await _avatarService.SaveAvatarAsync(avatar);
         var user = new User
@@ -68,6 +70,7 @@ public class UserService : IUserService
         return (accessToken, refreshToken, user);
     }
 
+    // Szerintem ez felesleges ide, de még nem törlöm ki
     public async Task LogoutUser()
     {
         await _signInManager.SignOutAsync();

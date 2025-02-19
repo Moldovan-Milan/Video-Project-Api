@@ -6,11 +6,11 @@ using System.Text;
 using System.Threading.Tasks;
 using WMPLib;
 
-namespace OmegaStreamServices.Services.VideoServices
+namespace OmegaStreamServices.Data
 {
-    public class VideoProccessingService : IVideoProccessingService
+    public class VideoSplitter
     {
-        public async Task SplitMP4ToM3U8(string inputPath, string outputName, string workingDirectory, int splitTimeInSec = 10)
+        public static async Task SplitMP4ToM3U8(string inputPath, string outputName, string workingDirectory, int splitTimeInSec = 10)
         {
             // ffmpeg parancsot futtat cmd-ben, amely felbontja a videót több .ts fájlra
             using (Process process = new Process())
@@ -34,12 +34,12 @@ namespace OmegaStreamServices.Services.VideoServices
 
                 process.WaitForExit();
                 var lines = ReadAndChange($"{workingDirectory}/{outputName}.m3u8");
-                await WriteM3U8File(lines, $"{workingDirectory}/{outputName}.m3u8");
+                WriteM3U8File(lines, $"{workingDirectory}/{outputName}.m3u8");
             }
 
         }
 
-        private List<string> ReadAndChange(string inputFileName)
+        private static List<string> ReadAndChange(string inputFileName)
         {
             // Egy string listát ad vissza, amibe beírja az elérési útvonalát, amellyel
             // a kliens le tudja kérdezni a .ts fájlt a szerverről
@@ -64,7 +64,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
             return result;
         }
-        private async Task WriteM3U8File(List<string> lines, string fileName)
+        private static void WriteM3U8File(List<string> lines, string fileName)
         {
             // Ez fogja bemásolni az átírt sorokat a .m3u8 fájlba
             StreamWriter streamWriter = new StreamWriter(fileName);
