@@ -13,7 +13,8 @@ namespace OmegaStreamServices.Data
     {
         public MappingProfile()
         {
-            CreateMap<User, UserDto>();
+            CreateMap<User, UserDto>().ForMember(dest => dest.FollowersCount, opt => opt.MapFrom(src => src.Followers.Count));
+
             CreateMap<Video, VideoDto>()
                 .ForMember(dest => dest.User, opt => opt.MapFrom(src => src.User))
                 .ForMember(dest => dest.Comments, opt => opt.MapFrom(src => src.Comments));

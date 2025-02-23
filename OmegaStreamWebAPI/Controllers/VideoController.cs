@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.VideoServices;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
@@ -19,9 +20,10 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly ICommentService _commentService;
         private readonly IVideoMetadataService _videoMetadataService;
         private readonly IVideoLikeService _videoLikeService;
+        private readonly ISubscriptionRepository _userSubscribeRepository;
         private readonly ILogger<VideoController> _logger;
 
-        public VideoController([NotNull] IVideoUploadService videoUploadService, [NotNull] IVideoStreamService videoStreamService, [NotNull] ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -29,6 +31,7 @@ namespace OmegaStreamWebAPI.Controllers
             _commentService = commentService;
             _videoMetadataService = videoMetadataService;
             _videoLikeService = videoLikeService;
+            _userSubscribeRepository = userSubscribeRepository;
         }
 
         #region Video Stream
@@ -110,25 +113,52 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("get-user-like-subscribe-value/{videoId}")]
         [Authorize]
-        [HttpGet("is-liked-by-user/{videoId}")]
-        public async Task<IActionResult> IsLikedByUser(int videoId)
+        public async Task<IActionResult> GetUserLikeAndSubscribe(int videoId){
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var video = await _videoMetadataService.GetVideoMetaData(videoId);
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized();
+                }
+                // Like
+                _logger.LogInformation("Get the value of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
+                string likeResult = await _videoLikeService.IsUserLikedVideo(userIdFromToken, videoId);
+                _logger.LogInformation("Get the subscribe of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
+
+                // Subscribe
+                bool subscribeResult = await _userSubscribeRepository.IsUserSubscribedToChanel(userIdFromToken, video.UserId);
+
+                return Ok(new { likeResult, subscribeResult });
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "user like and subscribe");
+            }
+        }
+        [Route("is-user-subscribed/{followedId}")]
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> IsUserSubscribedToChanel(string followedId)
         {
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
-                    return Forbid("Token is not valid");
+                {
+                    return BadRequest();
+                }
+                return Ok(await _userSubscribeRepository.IsUserSubscribedToChanel(userIdFromToken, followedId));
 
-                _logger.LogInformation("Get the value of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
-                string result = await _videoLikeService.IsUserLikedVideo(userIdFromToken, videoId);
-                return Ok(new { Result = result });
             }
             catch (Exception ex)
             {
-                return HandleException(ex, "userLike");
+                return HandleException(ex, "get subscribe bool");
             }
-
         }
 
         [HttpPost("set-user-like/{videoId}")]
@@ -146,6 +176,34 @@ namespace OmegaStreamWebAPI.Controllers
             catch (Exception ex)
             {
                 return HandleException(ex, "set-video-like");
+            }
+        }
+
+        [Authorize]
+        [HttpPost]
+        [Route("change-subscribe/{chanelId}")]
+        public async Task<IActionResult> ChangeSubcribe([FromForm] bool value, string chanelId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == chanelId)
+                {
+                    return BadRequest(new { message = "You cannot subscribe to yourself." });
+                }
+                if (value)
+                {
+                    await _userSubscribeRepository.SubscribeUserToChanel(userIdFromToken, chanelId);
+                }
+                else
+                {
+                    await _userSubscribeRepository.RemoveUserSubscribeFromChanel(userIdFromToken, chanelId);
+                }
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "change subscribe");
             }
         }
 

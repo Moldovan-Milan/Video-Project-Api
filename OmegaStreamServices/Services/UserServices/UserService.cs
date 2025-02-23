@@ -89,18 +89,20 @@ public class UserService : IUserService
         return (TokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
     }
 
-    public async Task<User> GetUserById(string id)
+    public async Task<User?> GetUserById(string id)
     {
-        return await _userManager.FindByIdAsync(id);
+        return await _userManager.Users.Include(x => x.Followers).FirstOrDefaultAsync(
+            x => x.Id == id);
     }
 
     public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId)
     {
-        User user = await _userManager.Users.Include(x => x.Videos)
+        User user = await _userManager.Users.Include(x => x.Videos).Include(x => x.Followers)
             .FirstOrDefaultAsync(x => x.Id == userId);
         if (user != null)
         {
             UserWithVideosDto userWithVideosDto = _mapper.Map<User, UserWithVideosDto>(user);
+            //userWithVideosDto.FollowersCount = user.Followers.Count;
             return userWithVideosDto;
         }
         return null;

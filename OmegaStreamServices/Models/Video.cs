@@ -40,9 +40,6 @@ namespace OmegaStreamServices.Models
         [ForeignKey("UserId")]
         public virtual User User { get; set; }
 
-        [Column("status")]
-        public string Status { get; set; }
-
         [Column("created")]
         [Required]
         public DateTime Created { get; set; }

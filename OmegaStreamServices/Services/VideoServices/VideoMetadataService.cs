@@ -15,12 +15,14 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoRepository _videoRepository;
         private readonly IVideoLikesRepository _videoLikeRepository;
         private readonly IMapper _mapper;
+        private readonly ISubscriptionRepository _subscriptionRepository;
 
-        public VideoMetadataService(IVideoRepository videoRepository, IMapper mapper, IVideoLikesRepository videoLikeService)
+        public VideoMetadataService(IVideoRepository videoRepository, IMapper mapper, IVideoLikesRepository videoLikeService, ISubscriptionRepository subscriptionRepository)
         {
             _videoRepository = videoRepository;
             _mapper = mapper;
             _videoLikeRepository = videoLikeService;
+            _subscriptionRepository = subscriptionRepository;
         }
 
         public async Task<List<VideoDto?>> GetAllVideosMetaData()
@@ -33,6 +35,7 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             Video video = await _videoRepository.GetVideoWithInclude(id);
             VideoDto videoDto = _mapper.Map<VideoDto>(video);
+            videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
             videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
             videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
             return videoDto;

@@ -112,9 +112,12 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoLikesRepository, VideoLikesRepository>();
             builder.Services.AddScoped<ICommentRepositroy, CommentRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+            builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+            builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
+            
 
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();

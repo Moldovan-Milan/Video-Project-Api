@@ -13,8 +13,7 @@ namespace OmegaStreamServices.Models
         public int AvatarId { get; set; } 
         [ForeignKey("AvatarId")] 
         public virtual Image? Avatar { get; set; } 
-        [Column("followers")] [Required] 
-        public int Followers { get; set; } 
+
         [Column("created")] 
         [Required] 
         public DateTime Created { get; set; }
@@ -26,6 +25,11 @@ namespace OmegaStreamServices.Models
         // Relationships
 
         public virtual ICollection<VideoLikes> VideoLikes { get; set; }
+
+        public virtual ICollection<Subscription> Subsribes { get; set; }
+
+        public virtual ICollection<Subscription> Following { get; set; } = new List<Subscription>();
+        public virtual ICollection<Subscription> Followers { get; set; } = new List<Subscription>();
 
         [JsonIgnore]
         public virtual ICollection<Video> Videos { get; set; }

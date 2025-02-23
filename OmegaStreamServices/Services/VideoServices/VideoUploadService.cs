@@ -86,7 +86,6 @@ namespace OmegaStreamServices.Services.VideoServices
                 Duration = duration,
                 Extension = videoExtension,
                 Title = title,
-                Status = "none",
                 Description = "Teszt",
                 ThumbnailId = image.Id,
                 UserId = userId
