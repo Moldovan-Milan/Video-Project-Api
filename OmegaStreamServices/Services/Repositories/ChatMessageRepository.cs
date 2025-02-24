@@ -12,13 +12,22 @@ namespace OmegaStreamServices.Services.Repositories
 {
     public class ChatMessageRepository : BaseRepository<ChatMessage>, IChatMessageRepository
     {
-        public ChatMessageRepository(AppDbContext context) : base(context)
+        private readonly IEncryptionHelper _encryptionHelper;
+
+        public ChatMessageRepository(AppDbContext context, IEncryptionHelper encryptionHelper) : base(context)
         {
+            _encryptionHelper = encryptionHelper;
         }
 
         public async Task<List<ChatMessage>> GetMessagesByChatId(int chatId)
         {
             return await _dbSet.Where(x => x.UserChatId == chatId).ToListAsync();
+        }
+
+        public async Task<string> GetLastMessageByChatId(int chatId)
+        {
+            return _encryptionHelper.Decrypt( await _dbSet.Where(x => x.UserChatId == chatId).OrderBy(x => x.SentAt)
+                .Select(x => x.Content).LastAsync());
         }
     }
 }

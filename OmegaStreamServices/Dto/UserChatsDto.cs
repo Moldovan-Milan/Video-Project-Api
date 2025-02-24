@@ -12,7 +12,7 @@ namespace OmegaStreamServices.Dto
     {
         public int Id { get; set; }
         public DateTime Created { get; set; }
-        public virtual UserDto User1 { get; set; }
-        public virtual UserDto User2 { get; set; }
+        public UserDto User { get; set; }
+        public string LastMessage { get; set; } = string.Empty;
     }
 }
