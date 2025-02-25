@@ -11,6 +11,6 @@ namespace OmegaStreamServices.Services.Repositories
     public interface IChatMessageRepository: IBaseRepository<ChatMessage>
     {
         Task<List<ChatMessage>> GetMessagesByChatId(int chatId);
-        Task<string> GetLastMessageByChatId(int chatId);
+        Task<string?> GetLastMessageByChatId(int chatId);
     }
 }

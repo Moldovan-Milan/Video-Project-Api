@@ -33,14 +33,18 @@ namespace OmegaStreamWebAPI.Controllers
             }
 
             var userChats = await _userChatsRepository.GetAllChatByUserIdAsync(userIdFromToken);
-            var userChatsDto = await Task.WhenAll(userChats.Select(async chat => new UserChatsDto
+            if (userChats != null)
             {
-                Id = chat.Id,
-                User = _mapper.Map<UserDto>(chat.User1.Id == userIdFromToken ? chat.User2 : chat.User1),
-                LastMessage = await _chatMessageRepository.GetLastMessageByChatId(chat.Id)
-            }));
+                var userChatsDto = await Task.WhenAll(userChats.Select(async chat => new UserChatsDto
+                {
+                    Id = chat.Id,
+                    User = _mapper.Map<UserDto>(chat.User1.Id == userIdFromToken ? chat.User2 : chat.User1),
+                    LastMessage = await _chatMessageRepository.GetLastMessageByChatId(chat.Id)
+                }));
 
-            return Ok(userChatsDto);
+                return Ok(userChatsDto);
+            }
+            return NoContent();
         }
     }
 }

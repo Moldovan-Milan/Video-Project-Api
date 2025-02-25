@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamWebAPI.WebSockets;
+using OmegaStreamWebAPI.Hubs;
 
 namespace OmegaStreamWebAPI
 {
@@ -104,6 +105,19 @@ namespace OmegaStreamWebAPI
                     ValidAudience = builder.Configuration["Jwt:Issuer"],
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
                 };
+                options.Events = new JwtBearerEvents
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
             // Repositories
@@ -134,6 +148,9 @@ namespace OmegaStreamWebAPI
             // Websocket for chat
             builder.Services.AddSingleton<ChatWebsocketHandler>();
 
+            // SingalR
+            builder.Services.AddSignalR();
+
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
             // Mapper
@@ -149,7 +166,7 @@ namespace OmegaStreamWebAPI
                 options.AddPolicy("AllowSpecificOrigin",
                     builder => builder.WithOrigins("http://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
                                       .AllowAnyMethod()
-                                      .WithHeaders("Authorization", "Content-Type", "Content-Range") // Authorization header-t engedélyezi
+                                      .AllowAnyHeader() // Authorization header-t engedélyezi
                                       .AllowCredentials());
             });
 
@@ -158,8 +175,8 @@ namespace OmegaStreamWebAPI
             // For private chat
             app.UseWebSockets();
 
-            var webSocketHandler = app.Services.GetRequiredService<ChatWebsocketHandler>();
-            app.Map("/ws", async context => await webSocketHandler.HandleWebsocketAsync(context));
+            // SignalR endpoint
+            app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin");
 
 
             // Configure the HTTP request pipeline.
