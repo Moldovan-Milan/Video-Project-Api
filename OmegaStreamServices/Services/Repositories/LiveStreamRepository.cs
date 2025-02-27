@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-public class InMemoryLiveStreamRepository : ILiveStreamRepository
+public class LiveStreamRepository : ILiveStreamRepository
 {
     private readonly ConcurrentDictionary<string, LiveStream> _liveStreams = new ConcurrentDictionary<string, LiveStream>();
 
