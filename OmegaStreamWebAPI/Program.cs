@@ -64,7 +64,7 @@ namespace OmegaStreamWebAPI
             // Identity
             builder.Services.Configure<IdentityOptions>(options =>
                 {
-                    // Majd az éles verzióban lesz engedélyezve
+                    // Majd az Ã©les verziÃ³ban lesz engedÃ©lyezve
                     // Password settings.
                     //options.Password.RequireDigit = true;
                     //options.Password.RequireLowercase = true;
@@ -166,7 +166,7 @@ namespace OmegaStreamWebAPI
                 options.AddPolicy("AllowSpecificOrigin",
                     builder => builder.WithOrigins("http://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
                                       .AllowAnyMethod()
-                                      .AllowAnyHeader() // Authorization header-t engedélyezi
+                                      .AllowAnyHeader()
                                       .AllowCredentials());
             });
 
