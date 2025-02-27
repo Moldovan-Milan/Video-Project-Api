@@ -128,7 +128,8 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-            builder.Services.AddScoped<ILiveStreamRepository, LiveStreamRepository>();
+
+            builder.Services.AddSingleton<ILiveStreamRepository, LiveStreamRepository>();
 
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();

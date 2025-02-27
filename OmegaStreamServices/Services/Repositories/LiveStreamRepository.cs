@@ -15,10 +15,10 @@ public class LiveStreamRepository : ILiveStreamRepository
         return Task.CompletedTask;
     }
 
-    public Task<LiveStream> GetLiveStreamByIdAsync(string streamId)
+    public async Task<LiveStream> GetLiveStreamByIdAsync(string streamId)
     {
         _liveStreams.TryGetValue(streamId, out var liveStream);
-        return Task.FromResult(liveStream);
+        return await Task.FromResult(liveStream);
     }
 
     public Task UpdateLiveStreamAsync(LiveStream liveStream)

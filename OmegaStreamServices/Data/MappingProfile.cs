@@ -24,6 +24,8 @@ namespace OmegaStreamServices.Data
                 .ForMember(dest => dest.Videos, opt => opt.MapFrom(src =>
                 src.Videos));
             CreateMap<UserChats, UserChatsDto>();
+
+            CreateMap<LiveStream, LiveStreamDto>();
         }
     }
 }
