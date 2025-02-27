@@ -23,7 +23,7 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpPost("start")]
-        public async Task<IActionResult> StartLiveStream()
+        public async Task<IActionResult> StartLiveStream([FromBody] LiveStreamDto liveStreamDto)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
@@ -36,7 +36,9 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 Id = liveStreamId,
                 UserId = userIdFromToken,
-                StartedAt = DateTime.UtcNow
+                StartedAt = DateTime.UtcNow,
+                StreamTitle = liveStreamDto.StreamTitle,
+                Description = liveStreamDto.Description
             };
 
             await _liveStreamRepository.AddLiveStreamAsync(liveStream);
