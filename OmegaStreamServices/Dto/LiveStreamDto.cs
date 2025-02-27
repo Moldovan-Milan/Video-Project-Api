@@ -8,7 +8,6 @@ namespace OmegaStreamServices.Dto
 {
     public class LiveStreamDto
     {
-        public string Id { get; set; }
         public string UserId { get; set; }
         public DateTime StartedAt { get; set; }
         public DateTime? EndedAt { get; set; }
