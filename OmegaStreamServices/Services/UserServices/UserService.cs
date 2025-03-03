@@ -107,4 +107,10 @@ public class UserService : IUserService
         }
         return null;
     }
+
+    public async Task<List<UserDto?>> GetUsersByName(string name)
+    {
+        var users = _userManager.Users.Where(x => x.UserName.ToLower().Contains(name.ToLower())).ToList();
+        return _mapper.Map<List<UserDto?>>(users);
+    }
 }
