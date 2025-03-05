@@ -17,6 +17,7 @@ namespace OmegaStreamServices.Data
         public DbSet<UserChats> UserChats { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
+        public DbSet<VideoView> VideoViews { get; set; }
 
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
