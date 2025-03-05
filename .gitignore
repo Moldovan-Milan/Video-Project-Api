@@ -30,3 +30,5 @@ obj/
 
 # Security
 appsettings.json
+/OmegaStreamWebAPI/omega_stream.sqlite-shm
+/OmegaStreamWebAPI/omega_stream.sqlite-wal
