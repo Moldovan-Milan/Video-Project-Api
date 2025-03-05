@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore.Query;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using System.Collections.Concurrent;
@@ -63,8 +64,6 @@ namespace OmegaStreamWebAPI.Hubs
             await Clients.Caller.SendAsync("SyncVideoState", correctedTime, roomState.VideoState.IsPlaying);
             await Clients.Groups(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
         }
-
-
 
         public async Task LeaveRoom(string roomId, string userId)
         {
@@ -143,11 +142,22 @@ namespace OmegaStreamWebAPI.Hubs
                 roomState.VideoState = new VideoState
                 {
                     CurrentTime = currentTime,
-                    LastUpdated = DateTime.UtcNow
+                    LastUpdated = DateTime.UtcNow,
+                    IsPlaying = true
                 };
             }
 
             await Clients.OthersInGroup(roomId).SendAsync("ReceiveSeek", currentTime);
+        }
+
+        // A host elküldi a saját idejét
+        public async Task SyncTime(string roomId, double hostTime)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState)) return;
+
+            roomState.VideoState.CurrentTime = hostTime;
+            await Clients.OthersInGroup(roomId).SendAsync("HostTimeSync", hostTime);
+
         }
 
         private class VideoState
