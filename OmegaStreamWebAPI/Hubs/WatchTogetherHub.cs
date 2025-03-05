@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
@@ -6,15 +7,17 @@ using System.Collections.Concurrent;
 
 namespace OmegaStreamWebAPI.Hubs
 {
-    public class WatchTogetherHub: Hub
+    public class WatchTogetherHub : Hub
     {
         // Ebben tároljuk el a szoba aktuális állapotát
         private static ConcurrentDictionary<string, RoomState> RoomStates = new();
         private readonly UserManager<User> _userManager;
+        private readonly IMapper _mapper;
 
-        public WatchTogetherHub(UserManager<User> userManager)
+        public WatchTogetherHub(UserManager<User> userManager, IMapper mapper)
         {
             _userManager = userManager;
+            _mapper = mapper;
         }
 
         public async Task JoinRoom(string roomId, string userId)
@@ -58,7 +61,7 @@ namespace OmegaStreamWebAPI.Hubs
 
             // Csak az új belépőnek küldjük el!
             await Clients.Caller.SendAsync("SyncVideoState", correctedTime, roomState.VideoState.IsPlaying);
-            await Clients.Caller.SendAsync("JoinedToRoom");
+            await Clients.Groups(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
         }
 
 
@@ -82,7 +85,7 @@ namespace OmegaStreamWebAPI.Hubs
 
             lock (roomState)
             {
-                roomState.Members.Remove(user);
+                roomState.Members.RemoveAll(x => x.Id == user.Id);
 
                 if (roomState.Host.Id == user.Id)
                 {
@@ -96,7 +99,7 @@ namespace OmegaStreamWebAPI.Hubs
                 RoomStates.TryRemove(roomId, out _);
             }
 
-            await Clients.Caller.SendAsync("LeavedRoom");
+            await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
         }
 
 
@@ -139,8 +142,8 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 roomState.VideoState = new VideoState
                 {
-                   CurrentTime = currentTime,
-                   LastUpdated = DateTime.UtcNow
+                    CurrentTime = currentTime,
+                    LastUpdated = DateTime.UtcNow
                 };
             }
 
