@@ -25,6 +25,7 @@ namespace OmegaStreamServices.Models
         // Relationships
 
         public virtual ICollection<VideoLikes> VideoLikes { get; set; }
+        public virtual ICollection<VideoView> ViewHistory { get; set; }
 
         public virtual ICollection<Subscription> Following { get; set; } = new List<Subscription>();
         public virtual ICollection<Subscription> Followers { get; set; } = new List<Subscription>();
