@@ -13,7 +13,7 @@ namespace OmegaStreamServices.Models
         public virtual User? User { get; set; }
 
         [NotMapped]
-        public string? IpAddress { get; set; }
+        public string? IpAddressHash { get; set; }
 
         public DateTime ViewedAt { get; set; } = DateTime.UtcNow;
 
