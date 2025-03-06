@@ -54,5 +54,19 @@ namespace OmegaStreamServices.Services.Repositories
 
             return view;
         }
+
+        public async Task AddLoggedInVideoView(VideoView view)
+        {
+            var existingViews = await _dbSet
+                .Where(v => v.UserId == view.UserId && v.VideoId == view.VideoId)
+                .ToListAsync();
+
+            if (existingViews.Any())
+            {
+                _dbSet.RemoveRange(existingViews);
+            }
+
+            _dbSet.Add(view);
+        }
     }
 }

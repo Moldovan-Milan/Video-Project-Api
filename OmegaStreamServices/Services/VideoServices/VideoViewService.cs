@@ -60,7 +60,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 if (lastUserView == null ||
                     ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(lastUserView.ViewedAt) > VideoViewRepository.ViewCooldown * 1000)
                 {
-                    await _videoViewRepository.Add(view);
+                    await _videoViewRepository.AddLoggedInVideoView(view);
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
                     return true;
