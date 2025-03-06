@@ -47,10 +47,6 @@ namespace OmegaStreamServices.Services.VideoServices
                     _videoRepository.Update(view.Video);
                     return true;
                 }
-                else
-                {
-                    Console.WriteLine("Guest view cooldown not met.");
-                }
             }
             else
             {
@@ -69,10 +65,6 @@ namespace OmegaStreamServices.Services.VideoServices
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
                     return true;
-                }
-                else
-                {
-                    Console.WriteLine("User view cooldown not met.");
                 }
             }
             return false;
