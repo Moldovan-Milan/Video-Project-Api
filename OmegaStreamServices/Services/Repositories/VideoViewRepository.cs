@@ -36,7 +36,11 @@ namespace OmegaStreamServices.Services.Repositories
 
         public async Task<VideoView> GetLastUserVideoView(string userId, int videoId)
         {
-            var view = await _dbSet.Where(x => x.UserId == userId).Where(x => x.VideoId == videoId).FirstOrDefaultAsync();
+            var view = await _dbSet
+                .Where(x => x.UserId == userId && x.VideoId == videoId)
+                .OrderByDescending(x => x.ViewedAt)
+                .FirstOrDefaultAsync();
+
             return view;
         }
     }
