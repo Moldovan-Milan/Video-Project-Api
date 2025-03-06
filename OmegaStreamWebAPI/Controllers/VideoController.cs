@@ -338,7 +338,10 @@ namespace OmegaStreamWebAPI.Controllers
                         SessionId = new Guid()
                     };
                     await _videoViewService.ValidateView(videoView);
-                    return Ok("Video view added successfully for Guest.");
+                    if (await _videoViewService.ValidateView(videoView))
+                    {
+                        return Ok("Video view added successfully for Guest.");
+                    }
                 }
                 else
                 {
@@ -348,9 +351,12 @@ namespace OmegaStreamWebAPI.Controllers
                         VideoId=videoId,
                         ViewedAt = DateTime.UtcNow
                     };
-                    await _videoViewService.ValidateView(videoView);
-                    return Ok("Video view added successfully for Logged in User");
+                    if(await _videoViewService.ValidateView(videoView))
+                    {
+                        return Ok("Video view added successfully for Logged in User");
+                    }
                 }
+                return BadRequest("Failed to validate view");
             }
             catch (Exception ex)
             {
