@@ -8,16 +8,26 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using OmegaStreamServices.Services.VideoServices;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace OmegaStreamServices.Services.Repositories
 {
     public class VideoViewRepository : BaseRepository<VideoView>, IVideoViewRepository
     {
+        private readonly IMemoryCache _cache;
+        private static readonly string GuestViewsCacheKey = "GuestViews";
         public static int ViewCooldown { get; } = 30;
-        public static List<VideoView> GuestViews { get; set; }
-        public VideoViewRepository(AppDbContext context) : base(context)
+        public List<VideoView> GuestViews { get; set; }
+
+        
+        public VideoViewRepository(AppDbContext context, IMemoryCache cache) : base(context)
         {
-            GuestViews = new List<VideoView>();
+            _cache = cache;
+            GuestViews =  _cache.GetOrCreate(GuestViewsCacheKey, entry =>
+            {
+                entry.SlidingExpiration = TimeSpan.FromSeconds(ViewCooldown);
+                return new List<VideoView>();
+            });
         }
         public async Task<List<VideoView>> GetUserViewHistory(string userId)
         {
@@ -32,6 +42,7 @@ namespace OmegaStreamServices.Services.Repositories
         public void AddGuestView(VideoView view)
         {
             GuestViews.Add(view);
+            _cache.Set(GuestViewsCacheKey, GuestViews);
         }
 
         public async Task<VideoView> GetLastUserVideoView(string userId, int videoId)

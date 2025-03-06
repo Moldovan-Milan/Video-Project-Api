@@ -34,7 +34,7 @@ namespace OmegaStreamServices.Services.VideoServices
             if (view.UserId == null)
             {
                 _videoViewRepository.RemoveOutdatedGuestViews();
-                var lastGuestView = VideoViewRepository.GuestViews
+                var lastGuestView = _videoViewRepository.GuestViews
                     .Where(v => v.IpAddressHash == view.IpAddressHash)
                     .OrderByDescending(v => v.ViewedAt)
                     .FirstOrDefault();
