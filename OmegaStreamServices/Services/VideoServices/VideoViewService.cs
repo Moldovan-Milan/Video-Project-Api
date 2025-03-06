@@ -10,7 +10,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoViewService : IVideoViewService
     {
-        private readonly int _viewCooldownSeconds = 30;
+
         private readonly IVideoViewRepository _videoViewRepository;
         private readonly IVideoRepository _videoRepository;
 
@@ -25,9 +25,10 @@ namespace OmegaStreamServices.Services.VideoServices
             }
             else
             {
-                if(ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(view.ViewedAt) > _viewCooldownSeconds*1000)
+                if(ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(view.ViewedAt) > VideoViewRepository.ViewCooldown*1000)
                 {
                     _videoViewRepository.Add(view);
+                    view.Video.Views++;
                 }
                 
             }

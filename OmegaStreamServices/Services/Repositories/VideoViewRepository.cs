@@ -7,14 +7,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OmegaStreamServices.Services.VideoServices;
 
 namespace OmegaStreamServices.Services.Repositories
 {
     public class VideoViewRepository : BaseRepository<VideoView>, IVideoViewRepository
     {
+        public static int ViewCooldown { get; } = 30;
+        public List<VideoView> GuestViews { get; set; }
         public VideoViewRepository(AppDbContext context) : base(context)
         {
-            
+            GuestViews = new List<VideoView>();
         }
         public async Task<List<VideoView>> GetUserViewHistory(string userId)
         {
