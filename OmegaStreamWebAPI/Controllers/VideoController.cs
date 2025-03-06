@@ -334,8 +334,7 @@ namespace OmegaStreamWebAPI.Controllers
                         UserId = null,
                         VideoId = videoId,
                         ViewedAt = DateTime.UtcNow,
-                        IpAddressHash = encryptedIp,
-                        SessionId = new Guid()
+                        IpAddressHash = encryptedIp
                     };
                     await _videoViewService.ValidateView(videoView);
                     if (await _videoViewService.ValidateView(videoView))

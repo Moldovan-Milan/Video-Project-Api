@@ -33,5 +33,11 @@ namespace OmegaStreamServices.Services.Repositories
         {
             GuestViews.Add(view);
         }
+
+        public async Task<VideoView> GetLastUserVideoView(string userId, int videoId)
+        {
+            var view = await _dbSet.Where(x => x.UserId == userId).Where(x => x.VideoId == videoId).FirstOrDefaultAsync();
+            return view;
+        }
     }
 }

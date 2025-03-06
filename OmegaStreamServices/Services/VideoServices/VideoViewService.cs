@@ -25,30 +25,59 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task<bool> ValidateView(VideoView view)
         {
             view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
-            if (view.UserId == null) {
+            if (view.Video == null)
+            {
+                Console.WriteLine("Video not found.");
+                return false;
+            }
+
+            if (view.UserId == null)
+            {
                 _videoViewRepository.RemoveOutdatedGuestViews();
-                if (!VideoViewRepository.GuestViews.Any(v => v.IpAddressHash == view.IpAddressHash))
+                var lastGuestView = VideoViewRepository.GuestViews
+                    .Where(v => v.IpAddressHash == view.IpAddressHash)
+                    .OrderByDescending(v => v.ViewedAt)
+                    .FirstOrDefault();
+
+                if (lastGuestView == null ||
+                    ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(lastGuestView.ViewedAt) > VideoViewRepository.ViewCooldown * 1000)
                 {
                     _videoViewRepository.AddGuestView(view);
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
                     return true;
                 }
+                else
+                {
+                    Console.WriteLine("Guest view cooldown not met.");
+                }
             }
             else
             {
                 view.User = await _userManager.FindByIdAsync(view.UserId);
-                if(ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(view.ViewedAt) > VideoViewRepository.ViewCooldown*1000)
+                if (view.User == null)
+                {
+                    Console.WriteLine("User not found.");
+                    return false;
+                }
+
+                var lastUserView = await _videoViewRepository.GetLastUserVideoView(view.UserId, view.VideoId);
+                if (lastUserView == null ||
+                    ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(lastUserView.ViewedAt) > VideoViewRepository.ViewCooldown * 1000)
                 {
                     await _videoViewRepository.Add(view);
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
                     return true;
                 }
-                
+                else
+                {
+                    Console.WriteLine("User view cooldown not met.");
+                }
             }
             return false;
         }
+
 
         private long ToUnixMillis(DateTime dateTime)
         {

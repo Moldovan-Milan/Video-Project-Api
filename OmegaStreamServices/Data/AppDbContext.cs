@@ -42,7 +42,7 @@ namespace OmegaStreamServices.Data
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<VideoView>()
-                .HasKey(v => new { v.VideoId, v.UserId, v.ViewedAt, v.SessionId });
+                .HasKey(v => new { v.VideoId, v.UserId, v.ViewedAt });
 
 
             #region VideoLikes table

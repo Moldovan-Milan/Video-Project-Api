@@ -20,6 +20,5 @@ namespace OmegaStreamServices.Models
 
         public int VideoId { get; set; }
         public virtual Video Video { get; set; }
-        public Guid? SessionId { get; set; }
     }
 }
