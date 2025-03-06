@@ -9,6 +9,7 @@ namespace OmegaStreamServices.Models
 {
     public class VideoView
     {
+        
         public string? UserId { get; set; }
         public virtual User? User { get; set; }
 
@@ -19,5 +20,6 @@ namespace OmegaStreamServices.Models
 
         public int VideoId { get; set; }
         public virtual Video Video { get; set; }
+        public Guid? SessionId { get; set; }
     }
 }
