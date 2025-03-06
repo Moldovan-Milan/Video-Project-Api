@@ -32,7 +32,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 if(ToUnixMillis(DateTime.UtcNow) - ToUnixMillis(view.ViewedAt) > VideoViewRepository.ViewCooldown*1000)
                 {
-                    _videoViewRepository.Add(view);
+                    await _videoViewRepository.Add(view);
                     view.Video.Views++;
                 }
                 
