@@ -27,7 +27,6 @@ namespace OmegaStreamServices.Services.VideoServices
             view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
             if (view.Video == null)
             {
-                Console.WriteLine("Video not found.");
                 return false;
             }
 
