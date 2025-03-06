@@ -9,6 +9,6 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public interface IVideoViewService
     {
-        Task ValidateView(VideoView view);
+        Task<bool> ValidateView(VideoView view);
     }
 }

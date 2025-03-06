@@ -22,7 +22,7 @@ namespace OmegaStreamServices.Services.VideoServices
             _videoRepository = videoRepository;
             _userManager = userManager;
         }
-        public async Task ValidateView(VideoView view)
+        public async Task<bool> ValidateView(VideoView view)
         {
             view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
             if (view.UserId == null) {
@@ -32,6 +32,7 @@ namespace OmegaStreamServices.Services.VideoServices
                     _videoViewRepository.AddGuestView(view);
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
+                    return true;
                 }
             }
             else
@@ -42,9 +43,11 @@ namespace OmegaStreamServices.Services.VideoServices
                     await _videoViewRepository.Add(view);
                     view.Video.Views++;
                     _videoRepository.Update(view.Video);
+                    return true;
                 }
                 
             }
+            return false;
         }
 
         private long ToUnixMillis(DateTime dateTime)
