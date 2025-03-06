@@ -315,7 +315,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         #region ViewValidation
         [HttpPost("add-video-view")]
-        public async Task<IActionResult> AddVideoView([FromQuery] int videoId, [FromQuery] string? userId)
+        public async Task<IActionResult> AddVideoView([FromBody] int videoId, [FromQuery] string userId)
         {
             if (videoId == 0)
             {
