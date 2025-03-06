@@ -338,7 +338,7 @@ namespace OmegaStreamWebAPI.Controllers
                     };
                     if (await _videoViewService.ValidateView(videoView))
                     {
-                        return Ok("Video view added successfully for Guest.");
+                        return Created("", new {message = "Video View added successfully, by Guest"});
                     }
                 }
                 else
@@ -351,7 +351,7 @@ namespace OmegaStreamWebAPI.Controllers
                     };
                     if(await _videoViewService.ValidateView(videoView))
                     {
-                        return Ok("Video view added successfully for Logged in User");
+                        return Created("", new { message = "Video View added successfully, by Logged In User" });
                     }
                 }
                 return BadRequest("Failed to validate view");
