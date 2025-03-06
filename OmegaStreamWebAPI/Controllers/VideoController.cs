@@ -317,7 +317,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost("add-video-view")]
         public async Task<IActionResult> AddVideoView([FromBody] int videoId, [FromQuery] string userId)
         {
-            if (videoId == 0 || userId == null)
+            if (videoId == 0)
             {
                 return BadRequest("Invalid video view data.");
             }
@@ -331,10 +331,11 @@ namespace OmegaStreamWebAPI.Controllers
 
                     var videoView = new VideoView
                     {
-                        UserId = userId,
+                        UserId = null,
                         VideoId = videoId,
                         ViewedAt = DateTime.UtcNow,
-                        IpAddressHash = encryptedIp
+                        IpAddressHash = encryptedIp,
+                        SessionId = new Guid()
                     };
                     await _videoViewService.ValidateView(videoView);
                     return Ok("Video view added successfully.");
