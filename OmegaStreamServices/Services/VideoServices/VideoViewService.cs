@@ -25,6 +25,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 if (!VideoViewRepository.GuestViews.Any(v => v.IpAddressHash == view.IpAddressHash))
                 {
                     _videoViewRepository.AddGuestView(view);
+                    view.Video.Views++;
                 }
             }
             else
