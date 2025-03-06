@@ -14,7 +14,7 @@ namespace OmegaStreamServices.Services.Repositories
     public class VideoViewRepository : BaseRepository<VideoView>, IVideoViewRepository
     {
         public static int ViewCooldown { get; } = 30;
-        public List<VideoView> GuestViews { get; set; }
+        public static List<VideoView> GuestViews { get; set; }
         public VideoViewRepository(AppDbContext context) : base(context)
         {
             GuestViews = new List<VideoView>();
@@ -31,7 +31,6 @@ namespace OmegaStreamServices.Services.Repositories
         }
         public void AddGuestView(VideoView view)
         {
-            RemoveOutdatedGuestViews();
             GuestViews.Add(view);
         }
     }

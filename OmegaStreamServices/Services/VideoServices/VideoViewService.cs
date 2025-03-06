@@ -21,7 +21,11 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task ValidateView(VideoView view)
         {
             if (view.UserId == null) {
-                //TODO: Guest
+                _videoViewRepository.RemoveOutdatedGuestViews();
+                if (!VideoViewRepository.GuestViews.Any(v => v.IpAddressHash == view.IpAddressHash))
+                {
+                    _videoViewRepository.AddGuestView(view);
+                }
             }
             else
             {
