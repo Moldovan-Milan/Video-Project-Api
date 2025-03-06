@@ -12,8 +12,11 @@ namespace OmegaStreamWebAPI.Hubs
     {
         // Ebben tároljuk el a szoba aktuális állapotát
         private static ConcurrentDictionary<string, RoomState> RoomStates = new();
+
         private readonly UserManager<User> _userManager;
         private readonly IMapper _mapper;
+
+        private const int MAX_USER_COUNT_IN_ROOM = 8;
 
         public WatchTogetherHub(UserManager<User> userManager, IMapper mapper)
         {
@@ -30,39 +33,92 @@ namespace OmegaStreamWebAPI.Hubs
                 return;
             }
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
 
             if (!RoomStates.TryGetValue(roomId, out var roomState))
             {
-                roomState = new RoomState { Host = user, IsHostInRoom = true };
+                roomState = new RoomState { Host = user, IsHostInRoom = true,
+                HostConnId = Context.ConnectionId};
                 RoomStates[roomId] = roomState;
+                roomState.Members.Add(user);
+
+                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+
                 await Clients.Caller.SendAsync("YouAreHost");
+                await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
             else if (userId == roomState.Host.Id && !roomState.IsHostInRoom)
             {
                 roomState.IsHostInRoom = true;
                 await Clients.Caller.SendAsync("YouAreHost");
+                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+
+
+                roomState.Members.Add(user);
+                await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+
+
                 await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
             }
-
-            lock (roomState)
+            // Van szoba, kérést küld a host felé
+            else
             {
-                if (!roomState.Members.Contains(user))
+                if (roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
                 {
-                    roomState.Members.Add(user);
+                    roomState.WaitingForAccept[user.Id] = Context.ConnectionId;
+                    await Clients.Clients(roomState.HostConnId).SendAsync("JoinRequest", _mapper.Map<UserDto>(user));
                 }
+                else
+                {
+                    await Clients.Caller.SendAsync("Error", "Room is full");
+                }
+                
+            }
+        }
+
+        public async Task AcceptUser(string roomId, string userId)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                await Clients.Caller.SendAsync("Error", "Room not found");
+                return;
             }
 
-            // Csak az új belépő kapja meg a mentett videóállapotot!
+            if (!roomState.WaitingForAccept.TryGetValue(userId, out string acceptedUserConnId))
+            {
+                await Clients.Caller.SendAsync("Error", "User not found in waiting list");
+                return;
+            }
+
+            User? user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                await Clients.Caller.SendAsync("Error", "User not found");
+                return;
+            }
+
+            roomState.WaitingForAccept.Remove(userId);
+            roomState.UserIdAndConnId[userId] = acceptedUserConnId;
+            roomState.Members.Add(user);
+
             double correctedTime = roomState.VideoState.CurrentTime;
             if (roomState.VideoState.IsPlaying)
             {
                 correctedTime += (DateTime.UtcNow - roomState.VideoState.LastUpdated).TotalSeconds;
             }
 
-            // Csak az új belépőnek küldjük el!
-            await Clients.Caller.SendAsync("SyncVideoState", correctedTime, roomState.VideoState.IsPlaying);
-            await Clients.Groups(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+            await Groups.AddToGroupAsync(acceptedUserConnId, roomId);
+            await Clients.Client(acceptedUserConnId).SendAsync("RequestAccepted", correctedTime, roomState.VideoState.IsPlaying);
+            await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+        }
+
+        public async Task RejectUser(string roomId, string userId)
+        {
+            if (RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                await Clients.Client(roomState.WaitingForAccept[userId]).SendAsync("RequestRejected");
+                roomState.WaitingForAccept.Remove(userId);
+
+            }
         }
 
         public async Task LeaveRoom(string roomId, string userId)
@@ -84,12 +140,13 @@ namespace OmegaStreamWebAPI.Hubs
 
             lock (roomState)
             {
-                roomState.Members.RemoveAll(x => x.Id == user.Id);
+                roomState.Members.RemoveAll(x => x.Id == userId);
 
                 if (roomState.Host.Id == user.Id)
                 {
                     roomState.IsHostInRoom = false;
-                    Clients.OthersInGroup(roomId).SendAsync("HostLeftRoom");
+                    roomState.HostConnId = string.Empty; // Host kapcsolatának törlése
+                    _ = Clients.OthersInGroup(roomId).SendAsync("HostLeftRoom");
                 }
             }
 
@@ -97,8 +154,10 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 RoomStates.TryRemove(roomId, out _);
             }
-
-            await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+            else
+            {
+                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+            }
         }
 
 
@@ -153,11 +212,19 @@ namespace OmegaStreamWebAPI.Hubs
         // A host elküldi a saját idejét
         public async Task SyncTime(string roomId, double hostTime)
         {
-            if (!RoomStates.TryGetValue(roomId, out var roomState)) return;
+            if (!RoomStates.TryGetValue(roomId, out var roomState) || roomState.HostConnId != Context.ConnectionId)
+            {
+                await Clients.Caller.SendAsync("Error", "Unauthorized");
+                return;
+            }
 
-            roomState.VideoState.CurrentTime = hostTime;
+            lock (roomState)
+            {
+                roomState.VideoState.CurrentTime = hostTime;
+                roomState.VideoState.LastUpdated = DateTime.UtcNow;
+            }
+
             await Clients.OthersInGroup(roomId).SendAsync("HostTimeSync", hostTime);
-
         }
 
         private class VideoState
@@ -170,9 +237,13 @@ namespace OmegaStreamWebAPI.Hubs
         private class RoomState
         {
             public User Host { get; set; } = new();
+            public string HostConnId { get; set; } = string.Empty;
             public bool IsHostInRoom { get; set; } = false;
             public List<User> Members { get; set; } = new();
-            public VideoState VideoState { get; set; } = new();
+            public Dictionary<string, string> UserIdAndConnId { get; set; } = new();
+            public Dictionary<string, string> WaitingForAccept { get; set; } = new();
+            public VideoState VideoState { get; set; } = new VideoState();
         }
+
     }
 }

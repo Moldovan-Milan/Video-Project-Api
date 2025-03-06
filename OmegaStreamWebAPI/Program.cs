@@ -144,6 +144,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
+            builder.Services.AddScoped<IRoomStateManager, RoomStateManager>();
 
             // Websocket for chat
             builder.Services.AddSingleton<ChatWebsocketHandler>();
