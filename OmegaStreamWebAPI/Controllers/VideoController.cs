@@ -336,7 +336,6 @@ namespace OmegaStreamWebAPI.Controllers
                         ViewedAt = DateTime.UtcNow,
                         IpAddressHash = encryptedIp
                     };
-                    await _videoViewService.ValidateView(videoView);
                     if (await _videoViewService.ValidateView(videoView))
                     {
                         return Ok("Video view added successfully for Guest.");
