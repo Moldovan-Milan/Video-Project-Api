@@ -44,6 +44,12 @@ namespace OmegaStreamServices.Data
             builder.Entity<VideoView>()
                 .HasKey(v => new { v.VideoId, v.UserId, v.ViewedAt });
 
+            builder.Entity<VideoView>()
+                .Property(v => v.ViewedAt)
+                .HasConversion(
+                    v => v,
+                    v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                );
 
             #region VideoLikes table
             builder.Entity<VideoLikes>()
