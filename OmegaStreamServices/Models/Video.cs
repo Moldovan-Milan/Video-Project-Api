@@ -43,6 +43,11 @@ namespace OmegaStreamServices.Models
         [Column("created")]
         [Required]
         public DateTime Created { get; set; }
+
+        [Column("views")]
+        [Required]
+        //TODO: Deal with migrating this
+        public long Views { get; set; } = 0;
         
         // Relationships
 
