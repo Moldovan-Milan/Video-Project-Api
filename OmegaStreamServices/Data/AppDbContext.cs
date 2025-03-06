@@ -41,6 +41,9 @@ namespace OmegaStreamServices.Data
                 .HasForeignKey(s => s.FollowedUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.Entity<VideoView>()
+                .HasKey(v => new { v.VideoId, v.UserId, v.ViewedAt, v.SessionId });
+
 
             #region VideoLikes table
             builder.Entity<VideoLikes>()
