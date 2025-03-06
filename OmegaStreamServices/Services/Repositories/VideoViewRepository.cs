@@ -24,5 +24,15 @@ namespace OmegaStreamServices.Services.Repositories
             var videos = await _dbSet.Where(x => x.UserId == userId).ToListAsync();
             return videos;
         }
+        public void RemoveOutdatedGuestViews()
+        {
+            var now = DateTime.UtcNow;
+            GuestViews.RemoveAll(view => (now - view.ViewedAt).TotalSeconds > ViewCooldown);
+        }
+        public void AddGuestView(VideoView view)
+        {
+            RemoveOutdatedGuestViews();
+            GuestViews.Add(view);
+        }
     }
 }
