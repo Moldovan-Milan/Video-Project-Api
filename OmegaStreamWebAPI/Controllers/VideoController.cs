@@ -1,9 +1,11 @@
-﻿using Amazon.S3;
+﻿using Amazon.Runtime.Internal;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.VideoServices;
 using System.Diagnostics.CodeAnalysis;
@@ -22,9 +24,10 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoLikeService _videoLikeService;
         private readonly ISubscriptionRepository _userSubscribeRepository;
         private readonly IVideoViewService _videoViewService;
+        private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -34,6 +37,7 @@ namespace OmegaStreamWebAPI.Controllers
             _videoLikeService = videoLikeService;
             _userSubscribeRepository = userSubscribeRepository;
             _videoViewService = videoViewService;
+            _encryptionHelper = encryptionHelper;
         }
 
         #region Video Stream
@@ -311,23 +315,48 @@ namespace OmegaStreamWebAPI.Controllers
 
         #region ViewValidation
         [HttpPost("add-video-view")]
-        public async Task<IActionResult> AddVideoView([FromBody] VideoView view)
+        public async Task<IActionResult> AddVideoView([FromBody] int videoId, [FromBody] string? userId)
         {
-            if (view == null)
+            if (videoId == 0 || userId == null)
             {
                 return BadRequest("Invalid video view data.");
             }
 
             try
             {
-                await _videoViewService.ValidateView(view);
-                return Ok("Video view added successfully.");
+                if(userId == null)
+                {
+                    var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                    var encryptedIp = _encryptionHelper.Encrypt(ipAddress);
+
+                    var videoView = new VideoView
+                    {
+                        UserId = userId,
+                        VideoId = videoId,
+                        ViewedAt = DateTime.UtcNow,
+                        IpAddressHash = encryptedIp
+                    };
+                    await _videoViewService.ValidateView(videoView);
+                    return Ok("Video view added successfully.");
+                }
+                else
+                {
+                    var videoView = new VideoView
+                    {
+                        UserId=userId,
+                        VideoId=videoId,
+                        ViewedAt = DateTime.UtcNow
+                    };
+                    await _videoViewService.ValidateView(videoView);
+                    return Ok("Video view added successfully.");
+                }
             }
             catch (Exception ex)
             {
                 return StatusCode(500, "Internal server error: " + ex.Message);
             }
         }
+
 
         #endregion
 
