@@ -164,5 +164,33 @@ namespace OmegaStreamServices.Services
             }
             return null;
         }
+
+        public bool SaveMessage(string roomId, UserDto sender, string content, out RoomMessage? message)
+        {
+            message = null;
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+                return false;
+
+            RoomMessage newMessage = new RoomMessage
+            {
+                Sender = sender,
+                Content = content
+            };
+            
+            message = newMessage;
+            roomState.RoomMessages.Add(newMessage);
+            return true;
+            
+        }
+
+        public List<RoomMessage>? GetHistory(string roomId)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                return null;
+            }
+
+            return roomState.RoomMessages.OrderBy(x => x.SentAt).ToList();
+        }
     }
 }

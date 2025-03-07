@@ -1,4 +1,5 @@
-﻿using OmegaStreamServices.Models;
+﻿using OmegaStreamServices.Dto;
+using OmegaStreamServices.Models;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,5 +17,7 @@ namespace OmegaStreamServices.Services
         Task<AddUserToRoomResult> AcceptUser(string roomId, User user, out string connectionId, out RoomState? roomState);
         (bool IsSuccess, string SyncMessage) UpdateVideoState(string roomId, double currentTime, bool isPlaying);
         RoomState SyncTime(string roomId, double currentTime);
+        bool SaveMessage(string roomId, UserDto sender, string content, out RoomMessage? message);
+        List<RoomMessage>? GetHistory(string roomId);
     }
 }

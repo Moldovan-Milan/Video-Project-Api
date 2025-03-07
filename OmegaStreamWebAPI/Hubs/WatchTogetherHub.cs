@@ -27,7 +27,7 @@ namespace OmegaStreamWebAPI.Hubs
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
-                await Clients.Caller.SendAsync("Error", "User not found");
+                await SendErroMessage(Context.ConnectionId, "User not found");
                 return;
             }
 
@@ -37,11 +37,12 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
-                await Clients.Caller.SendAsync("YouAreHost");
+                await Clients.Caller.SendAsync("YouAreHost", null);
             }
             else if (result == AddUserToRoomResult.HostReconected && roomState != null)
             {
-                await Clients.Caller.SendAsync("YouAreHost");
+                var messages = _roomManager.GetHistory(roomId);
+                await Clients.Caller.SendAsync("YouAreHost", messages);
                 await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                 await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
@@ -57,7 +58,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
             else if (result == AddUserToRoomResult.RoomIsFull)
             {
-                await Clients.Caller.SendAsync("Error", "Room is full");
+                await SendErroMessage(Context.ConnectionId, "Room is full");
             }
         }
 
@@ -67,7 +68,7 @@ namespace OmegaStreamWebAPI.Hubs
 
             if (user == null)
             {
-                await Clients.Caller.SendAsync("Error", "User not found");
+                await SendErroMessage(Context.ConnectionId, "User not found");
                 return;
             }
     
@@ -76,17 +77,19 @@ namespace OmegaStreamWebAPI.Hubs
             if (result == AddUserToRoomResult.Accepted)
             {
                 await Groups.AddToGroupAsync(connId, roomId);
-                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying);
+
+                var messages = _roomManager.GetHistory(roomId);
+                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, messages);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
             else if (result == AddUserToRoomResult.RoomIsFull)
             {
-                await Clients.Caller.SendAsync("Error", "Room is full");
+                await SendErroMessage(Context.ConnectionId, "Room is full");
                 await Clients.Client(connId).SendAsync("Error", "Room is full");
             }
             else if (result == AddUserToRoomResult.Failed)
             {
-                await Clients.Caller.SendAsync("Error", "Failed to accept");
+                await SendErroMessage(Context.ConnectionId, "Failed to accept");
             }
         }
 
@@ -133,6 +136,29 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 await Clients.OthersInGroup(roomId).SendAsync("HostTimeSync", currentTime);
             }
+        }
+
+        public async Task SendMessage(string roomId, string userId, string content)
+        {
+            User? user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                await SendErroMessage(Context.ConnectionId, "User not found");
+                return;
+            }
+
+            if (!_roomManager.SaveMessage(roomId, _mapper.Map<UserDto>(user), content, out var message))
+            {
+                await SendErroMessage(Context.ConnectionId, "Failed to save message");
+                return;
+            }
+
+            await Clients.Group(roomId).SendAsync("ReceiveMessage", message);
+        }
+
+        private async Task SendErroMessage(string connectionId, string message) 
+        {
+            await Clients.Clients(connectionId).SendAsync("Error", message);
         }
 
     }
