@@ -22,6 +22,12 @@ namespace OmegaStreamServices.Services.VideoServices
             _videoRepository = videoRepository;
             _userManager = userManager;
         }
+
+        public async Task<List<VideoView>> getUserViewHistory(string userId)
+        {
+            List<VideoView> videos = await _videoViewRepository.GetUserViewHistory(userId);
+            return videos;
+        }
         public async Task<bool> ValidateView(VideoView view)
         {
             view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
