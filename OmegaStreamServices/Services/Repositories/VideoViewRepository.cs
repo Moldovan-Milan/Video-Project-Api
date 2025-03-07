@@ -35,7 +35,7 @@ namespace OmegaStreamServices.Services.Repositories
                 .Where(x => x.UserId == userId)
                 .Include(x => x.User)
                 .Include(x => x.Video)
-                .ThenInclude(v => v.Thumbnail)
+                .ThenInclude(v => v.User)       
                 .ToListAsync();
 
             return videoViews;
