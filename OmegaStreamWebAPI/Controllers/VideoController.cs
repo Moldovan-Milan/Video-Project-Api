@@ -313,7 +313,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         #endregion Video Upload
 
-        #region ViewValidation
+        #region View Validation
         [HttpPost("add-video-view")]
         public async Task<IActionResult> AddVideoView([FromQuery] int videoId, [FromQuery] string? userId)
         {
@@ -363,6 +363,20 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
 
+        #endregion
+
+        #region Watch History
+        [Authorize]
+        [HttpGet("watch-history/{userId}")]
+        public async Task<IActionResult> WatchHistory(string userId)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdFromToken == null || userIdFromToken != userId)
+            {
+                return Unauthorized();
+            }
+            return Ok(await _videoViewService.getUserViewHistory(userId));
+        }
         #endregion
 
         private IActionResult HandleException(Exception ex, string resourceName)
