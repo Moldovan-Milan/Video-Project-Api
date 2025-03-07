@@ -31,8 +31,8 @@ namespace OmegaStreamServices.Services.Repositories
         }
         public async Task<List<VideoView>> GetUserViewHistory(string userId)
         {
-            var videos = await _dbSet.Where(x => x.UserId == userId).ToListAsync();
-            return videos;
+            var videoViews = await _dbSet.Where(x => x.UserId == userId).ToListAsync();
+            return videoViews;
         }
         public void RemoveOutdatedGuestViews()
         {
