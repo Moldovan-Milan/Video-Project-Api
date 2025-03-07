@@ -1,4 +1,5 @@
 ﻿using OmegaStreamServices.Models;
+using OmegaStreamServices.Dto;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +10,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public interface IVideoViewService
     {
-        Task<List<VideoView>> getUserViewHistory(string userId);
+        Task<List<VideoViewDto>> GetUserViewHistory(string userId);
         Task<bool> ValidateView(VideoView view);
     }
 }

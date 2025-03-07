@@ -375,7 +375,8 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return Unauthorized();
             }
-            return Ok(await _videoViewService.getUserViewHistory(userId));
+            var videoViewHistory = await _videoViewService.GetUserViewHistory(userId);
+            return Ok(videoViewHistory);
         }
         #endregion
 

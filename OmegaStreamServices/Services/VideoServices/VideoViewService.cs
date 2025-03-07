@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using System;
@@ -15,19 +17,23 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoViewRepository _videoViewRepository;
         private readonly IVideoRepository _videoRepository;
         private readonly UserManager<User> _userManager;
+        private readonly IMapper _mapper;
 
-        public VideoViewService(IVideoViewRepository videoViewRepository, IVideoRepository videoRepository, UserManager<User> userManager)
+        public VideoViewService(IVideoViewRepository videoViewRepository, IVideoRepository videoRepository, UserManager<User> userManager, IMapper mapper)
         {
             _videoViewRepository = videoViewRepository;
             _videoRepository = videoRepository;
             _userManager = userManager;
+            _mapper = mapper;
         }
 
-        public async Task<List<VideoView>> getUserViewHistory(string userId)
+        public async Task<List<VideoViewDto>> GetUserViewHistory(string userId)
         {
-            List<VideoView> videos = await _videoViewRepository.GetUserViewHistory(userId);
-            return videos;
+            var videoViews = await _videoViewRepository.GetUserViewHistory(userId);
+            return _mapper.Map<List<VideoViewDto>>(videoViews);
         }
+
+
         public async Task<bool> ValidateView(VideoView view)
         {
             view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
