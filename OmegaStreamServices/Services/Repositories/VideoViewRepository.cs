@@ -36,9 +36,9 @@ namespace OmegaStreamServices.Services.Repositories
                 .Include(x => x.User)
                 .Include(x => x.Video)
                 .ThenInclude(v => v.User)
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
                 .OrderByDescending(x => x.ViewedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize) 
                 .ToListAsync();
 
             return videoViews;
