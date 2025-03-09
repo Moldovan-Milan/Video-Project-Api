@@ -377,7 +377,13 @@ namespace OmegaStreamWebAPI.Controllers
             }
 
             var videoViewHistory = await _videoViewService.GetUserViewHistory(userId, pageNumber, pageSize);
-            return Ok(videoViewHistory);
+
+            bool hasMore = videoViewHistory.Count == pageSize;
+            return Ok(new
+            {
+                videoViews = videoViewHistory,
+                hasMore = hasMore
+            });
         }
         #endregion
 
