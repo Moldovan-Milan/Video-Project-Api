@@ -14,6 +14,7 @@ namespace OmegaStreamServices.Models
         public List<User> Members { get; set; } = new();
         public Dictionary<string, string> UserIdAndConnId { get; set; } = new();
         public Dictionary<string, string> WaitingForAccept { get; set; } = new();
+        public List<User> BannedUsers { get; set; } = new();
         public List<RoomMessage> RoomMessages { get; set; } = new();
         public VideoState VideoState { get; set; } = new VideoState();
     }

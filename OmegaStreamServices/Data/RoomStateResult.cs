@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Models
 {
-    public enum AddUserToRoomResult
+    public enum RoomStateResult
     {
        Created,
        Accepted,
        Rejected,
        NeedsAproval,
+       Banned,
        HostReconected,
        RoomIsFull,
        Failed

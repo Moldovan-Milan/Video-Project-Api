@@ -31,15 +31,15 @@ namespace OmegaStreamWebAPI.Hubs
                 return;
             }
 
-            AddUserToRoomResult result = await _roomManager.AddUserToRoom(roomId, user, Context.ConnectionId, out var roomState);
+            RoomStateResult result = await _roomManager.AddUserToRoom(roomId, user, Context.ConnectionId, out var roomState);
             
-            if (result == AddUserToRoomResult.Created)
+            if (result == RoomStateResult.Created)
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                 await Clients.Caller.SendAsync("YouAreHost", null);
             }
-            else if (result == AddUserToRoomResult.HostReconected && roomState != null)
+            else if (result == RoomStateResult.HostReconected && roomState != null)
             {
                 var messages = _roomManager.GetHistory(roomId);
                 await Clients.Caller.SendAsync("YouAreHost", messages);
@@ -47,16 +47,20 @@ namespace OmegaStreamWebAPI.Hubs
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                 await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
             }
-            else if (result == AddUserToRoomResult.Accepted && roomState != null)
+            else if(result == RoomStateResult.Banned)
+            {
+                await Clients.Caller.SendAsync("YouAreBanned");
+            }
+            else if (result == RoomStateResult.Accepted && roomState != null)
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
-            else if (result == AddUserToRoomResult.NeedsAproval && roomState != null)
+            else if (result == RoomStateResult.NeedsAproval && roomState != null)
             {
                 await Clients.Clients(roomState.HostConnId).SendAsync("JoinRequest", _mapper.Map<UserDto>(user));
             }
-            else if (result == AddUserToRoomResult.RoomIsFull)
+            else if (result == RoomStateResult.RoomIsFull)
             {
                 await SendErroMessage(Context.ConnectionId, "Room is full");
             }
@@ -74,7 +78,7 @@ namespace OmegaStreamWebAPI.Hubs
     
 
             var result = await _roomManager.AcceptUser(roomId, user, out string connId, out RoomState roomState);
-            if (result == AddUserToRoomResult.Accepted)
+            if (result == RoomStateResult.Accepted)
             {
                 await Groups.AddToGroupAsync(connId, roomId);
 
@@ -82,12 +86,12 @@ namespace OmegaStreamWebAPI.Hubs
                 await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, messages);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
-            else if (result == AddUserToRoomResult.RoomIsFull)
+            else if (result == RoomStateResult.RoomIsFull)
             {
                 await SendErroMessage(Context.ConnectionId, "Room is full");
                 await Clients.Client(connId).SendAsync("Error", "Room is full");
             }
-            else if (result == AddUserToRoomResult.Failed)
+            else if (result == RoomStateResult.Failed)
             {
                 await SendErroMessage(Context.ConnectionId, "Failed to accept");
             }
@@ -154,6 +158,23 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             await Clients.Group(roomId).SendAsync("ReceiveMessage", message);
+        }
+
+        public async Task BanUser(string roomId, string userId)
+        {
+            User? user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                await SendErroMessage("Error", "User not found");
+                return;
+            }
+            
+            if (_roomManager.BanUser(roomId, user.Id, out string connId, out List<User> members))
+            {
+                await Clients.Client(connId).SendAsync("YouAreBanned");
+                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+
+            }
         }
 
         private async Task SendErroMessage(string connectionId, string message) 
