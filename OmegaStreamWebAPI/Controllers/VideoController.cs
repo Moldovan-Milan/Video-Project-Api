@@ -368,14 +368,15 @@ namespace OmegaStreamWebAPI.Controllers
         #region Watch History
         [Authorize]
         [HttpGet("watch-history/{userId}")]
-        public async Task<IActionResult> WatchHistory(string userId)
+        public async Task<IActionResult> WatchHistory(string userId, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null || userIdFromToken != userId)
             {
                 return Unauthorized();
             }
-            var videoViewHistory = await _videoViewService.GetUserViewHistory(userId);
+
+            var videoViewHistory = await _videoViewService.GetUserViewHistory(userId, pageNumber, pageSize);
             return Ok(videoViewHistory);
         }
         #endregion

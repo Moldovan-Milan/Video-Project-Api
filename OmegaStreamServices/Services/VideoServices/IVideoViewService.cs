@@ -10,7 +10,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public interface IVideoViewService
     {
-        Task<List<VideoViewDto>> GetUserViewHistory(string userId);
+        Task<List<VideoViewDto>> GetUserViewHistory(string userId, int? pageNumber, int? pageSize);
         Task<bool> ValidateView(VideoView view);
     }
 }

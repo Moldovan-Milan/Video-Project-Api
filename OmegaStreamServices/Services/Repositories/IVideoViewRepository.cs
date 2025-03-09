@@ -11,7 +11,7 @@ namespace OmegaStreamServices.Services.Repositories
     public interface IVideoViewRepository: IBaseRepository<VideoView>
     {
         List<VideoView> GuestViews { get; set; }
-        Task<List<VideoView>> GetUserViewHistory(string userId);
+        Task<List<VideoView>> GetUserViewHistory(string userId, int pageNumber, int pageSize);
         void RemoveOutdatedGuestViews();
         void AddGuestView(VideoView view);
         Task<VideoView> GetLastUserVideoView(string userId, int videoId);

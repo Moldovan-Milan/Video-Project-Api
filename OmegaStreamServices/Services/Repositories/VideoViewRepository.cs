@@ -29,13 +29,15 @@ namespace OmegaStreamServices.Services.Repositories
                 return new List<VideoView>();
             });
         }
-        public async Task<List<VideoView>> GetUserViewHistory(string userId)
+        public async Task<List<VideoView>> GetUserViewHistory(string userId, int pageNumber, int pageSize)
         {
             var videoViews = await _dbSet
                 .Where(x => x.UserId == userId)
                 .Include(x => x.User)
                 .Include(x => x.Video)
-                .ThenInclude(v => v.User)       
+                .ThenInclude(v => v.User)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             return videoViews;

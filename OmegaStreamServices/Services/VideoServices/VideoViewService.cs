@@ -27,9 +27,18 @@ namespace OmegaStreamServices.Services.VideoServices
             _mapper = mapper;
         }
 
-        public async Task<List<VideoViewDto>> GetUserViewHistory(string userId)
+        public async Task<List<VideoViewDto>> GetUserViewHistory(string userId, int? pageNumber, int? pageSize)
         {
-            var videoViews = await _videoViewRepository.GetUserViewHistory(userId);
+            pageNumber = pageNumber ?? 1;
+            pageSize = pageSize ?? 30;
+            if (pageNumber <= 0) {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 30;
+            }
+            var videoViews = await _videoViewRepository.GetUserViewHistory(userId,pageNumber.Value,pageSize.Value);
             return _mapper.Map<List<VideoViewDto>>(videoViews);
         }
 
