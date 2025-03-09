@@ -35,7 +35,6 @@ namespace OmegaStreamServices.Services.Repositories
             Video video = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
                 .Include(x => x.Comments).ThenInclude(x => x.User)
                 .FirstOrDefaultAsync(v => v.Id == id)!;
-            video.User.PasswordHash = String.Empty;
             return video;
         }
     }
