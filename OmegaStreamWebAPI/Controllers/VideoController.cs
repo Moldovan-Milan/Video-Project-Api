@@ -321,7 +321,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost("add-video-view")]
         public async Task<IActionResult> AddVideoView([FromQuery] int videoId, [FromQuery] string? userId)
         {
-            if (videoId == 0)
+            if (videoId <= 0)
             {
                 return BadRequest("Invalid video view data.");
             }
