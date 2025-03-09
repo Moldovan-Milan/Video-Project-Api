@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.SignalR;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
+using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.UserServices;
 using System.Collections.Concurrent;
 
@@ -12,14 +13,16 @@ namespace OmegaStreamWebAPI.Hubs
     public class WatchTogetherHub : Hub
     {
         private readonly UserManager<User> _userManager;
+        private readonly IVideoRepository _videoRepository;
         private readonly IRoomStateManager _roomManager;
         private readonly IMapper _mapper;
 
-        public WatchTogetherHub(UserManager<User> userManager, IRoomStateManager roomManager, IMapper mapper)
+        public WatchTogetherHub(UserManager<User> userManager, IRoomStateManager roomManager, IMapper mapper, IVideoRepository videoRepository)
         {
             _userManager = userManager;
             _roomManager = roomManager;
             _mapper = mapper;
+            _videoRepository = videoRepository;
         }
 
         public async Task JoinRoom(string roomId, string userId)
@@ -41,8 +44,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
             else if (result == RoomStateResult.HostReconected && roomState != null)
             {
-                var messages = _roomManager.GetHistory(roomId);
-                await Clients.Caller.SendAsync("YouAreHost", messages);
+                await Clients.Caller.SendAsync("YouAreHost", roomState.RoomMessages);
                 await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                 await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
@@ -82,8 +84,8 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 await Groups.AddToGroupAsync(connId, roomId);
 
-                var messages = _roomManager.GetHistory(roomId);
-                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, messages);
+                VideoDto currentVideo = roomState.PlayList.Where(x => x.Id == roomState.CurrentVideoId).FirstOrDefault();
+                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, roomState.RoomMessages, roomState.PlayList, currentVideo);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
             else if (result == RoomStateResult.RoomIsFull)
@@ -174,6 +176,54 @@ namespace OmegaStreamWebAPI.Hubs
                 await Clients.Client(connId).SendAsync("YouAreBanned");
                 await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
 
+            }
+        }
+
+        public async Task AddVideoToPlaylist(string roomId, int videoId)
+        {
+            Video? video = await _videoRepository.GetVideoWithInclude(videoId);
+
+            if (video == null)
+            {
+                await SendErroMessage(Context.ConnectionId, "Video not found");
+                return;
+            }
+
+            if (_roomManager.AddVideoToPlaylist(roomId, _mapper.Map<VideoDto>(video), out var playList))
+            {
+                await Clients.Group(roomId).SendAsync("PlayListChanged", playList);
+            }
+            else
+            {
+                await SendErroMessage(Context.ConnectionId, "An error happend");
+            }
+        }
+
+        public async Task StartVideo(string roomId, int videoId)
+        {
+            Video? video = await _videoRepository.FindByIdAsync(videoId);
+            if (video == null)
+            {
+                await SendErroMessage(Context.ConnectionId, "Video not found");
+                return;
+            }
+            if (!_roomManager.StartVideo(roomId, video))
+            {
+                await SendErroMessage(Context.ConnectionId, "An error happend");
+                return;
+            }
+            await Clients.Group(roomId).SendAsync("StartVideo", video);
+        }
+
+        public async Task RemoveVideoFromPlayList(string roomId, int videoId)
+        {
+            if (_roomManager.RemoveVideoFromPlayList(roomId, videoId, out var playList))
+            {
+                await Clients.Group(roomId).SendAsync("PlayListChanged", playList);
+            }
+            else
+            {
+                await SendErroMessage(Context.ConnectionId, "An error happend");
             }
         }
 

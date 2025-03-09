@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OmegaStreamServices.Dto;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,8 @@ namespace OmegaStreamServices.Models
         public Dictionary<string, string> WaitingForAccept { get; set; } = new();
         public List<User> BannedUsers { get; set; } = new();
         public List<RoomMessage> RoomMessages { get; set; } = new();
+        public List<VideoDto> PlayList { get; set; } = new();
+        public int CurrentVideoId { get; set; }
         public VideoState VideoState { get; set; } = new VideoState();
     }
 }

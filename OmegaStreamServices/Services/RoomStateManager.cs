@@ -188,16 +188,6 @@ namespace OmegaStreamServices.Services
             
         }
 
-        public List<RoomMessage>? GetHistory(string roomId)
-        {
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
-            {
-                return null;
-            }
-
-            return roomState.RoomMessages.OrderBy(x => x.SentAt).ToList();
-        }
-
         public bool BanUser(string roomId, string userId, out string? connId, out List<User>? members)
         {
             connId = null;
@@ -215,6 +205,45 @@ namespace OmegaStreamServices.Services
             roomState.UserIdAndConnId.Remove(userId);
 
             members = roomState.Members;
+            return true;
+        }
+
+        public bool AddVideoToPlaylist(string roomId, VideoDto video, out List<VideoDto>? playList)
+        {
+            playList = null;
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                return false;
+            }
+            roomState.PlayList.Add(video);
+            playList = roomState.PlayList;
+            return true;
+        }
+
+        public bool StartVideo(string roomId, Video video)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+                return false;
+            if (roomState.PlayList.Where(x => x.Id == video.Id).Any())
+            {
+                roomState.CurrentVideoId = video.Id;
+                return true;
+            }
+            return false;
+        }
+
+        public bool RemoveVideoFromPlayList(string roomId, int videoId, out List<VideoDto>? playList)
+        {
+            playList = null;
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                return false;
+            }
+            var video = roomState.PlayList.FirstOrDefault(x => x.Id == videoId);
+            if (video == null)
+                return false;
+            roomState.PlayList.Remove(video);
+            playList = roomState.PlayList;
             return true;
         }
     }

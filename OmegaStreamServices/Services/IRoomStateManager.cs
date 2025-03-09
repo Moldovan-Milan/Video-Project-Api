@@ -18,7 +18,9 @@ namespace OmegaStreamServices.Services
         (bool IsSuccess, string SyncMessage) UpdateVideoState(string roomId, double currentTime, bool isPlaying);
         RoomState SyncTime(string roomId, double currentTime);
         bool SaveMessage(string roomId, UserDto sender, string content, out RoomMessage? message);
-        List<RoomMessage>? GetHistory(string roomId);
         bool BanUser(string roomId, string userId, out string? connId, out List<User>? members);
+        bool AddVideoToPlaylist(string roomId, VideoDto video, out List<VideoDto>? playList);
+        bool StartVideo(string roomId, Video video);
+        bool RemoveVideoFromPlayList(string roomId, int videoId, out List<VideoDto>? playList);
     }
 }
