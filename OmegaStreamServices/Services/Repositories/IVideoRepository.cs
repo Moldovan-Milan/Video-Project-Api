@@ -10,7 +10,7 @@ namespace OmegaStreamServices.Services.Repositories
 {
     public interface IVideoRepository: IBaseRepository<Video>
     {
-        Task<List<Video>> GetAllVideosWithIncludes();
+        Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize);
         Task<Video> GetVideoWithInclude(int id);
         Task<List<Video>> GetVideosByName(string name);
     }

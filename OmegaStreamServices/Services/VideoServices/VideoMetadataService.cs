@@ -25,9 +25,19 @@ namespace OmegaStreamServices.Services.VideoServices
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<List<VideoDto?>> GetAllVideosMetaData()
+        public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize)
         {
-            var videos = await _videoRepository.GetAllVideosWithIncludes();
+            pageNumber = pageNumber ?? 1;
+            pageSize = pageSize ?? 30;
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 30;
+            }
+            var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
 

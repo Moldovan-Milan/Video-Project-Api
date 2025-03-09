@@ -1,4 +1,4 @@
-﻿using Amazon.Runtime.Internal;
+using Amazon.Runtime.Internal;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -83,18 +83,22 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetVideosData()
+        public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData();
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize);
             if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
                 return NotFound();
             }
-
+            bool hasMore = videos.Count == pageSize;
             _logger.LogInformation("Successfully fetched video metadata.");
-            return Ok(videos);
+            return Ok(new
+            {
+                videos = videos,
+                hasMore = hasMore
+            });
         }
 
         [HttpGet("data/{id}")]
@@ -317,7 +321,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost("add-video-view")]
         public async Task<IActionResult> AddVideoView([FromQuery] int videoId, [FromQuery] string? userId)
         {
-            if (videoId == -1)
+            if (videoId <= 0)
             {
                 return BadRequest("Invalid video view data.");
             }
@@ -377,7 +381,13 @@ namespace OmegaStreamWebAPI.Controllers
             }
 
             var videoViewHistory = await _videoViewService.GetUserViewHistory(userId, pageNumber, pageSize);
-            return Ok(videoViewHistory);
+
+            bool hasMore = videoViewHistory.Count == pageSize;
+            return Ok(new
+            {
+                videoViews = videoViewHistory,
+                hasMore = hasMore
+            });
         }
         #endregion
 
