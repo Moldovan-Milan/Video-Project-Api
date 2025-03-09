@@ -83,18 +83,22 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetVideosData()
+        public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData();
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize);
             if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
                 return NotFound();
             }
-
+            bool hasMore = videos.Count == pageSize;
             _logger.LogInformation("Successfully fetched video metadata.");
-            return Ok(videos);
+            return Ok(new
+            {
+                videos = videos,
+                hasMore = hasMore
+            });
         }
 
         [HttpGet("data/{id}")]
