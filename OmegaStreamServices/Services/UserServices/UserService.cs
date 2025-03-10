@@ -95,6 +95,12 @@ public class UserService : IUserService
             x => x.Id == id);
     }
 
+    public async Task<User?> GetUserWithFollowersById(string id)
+    {
+        return await _userManager.Users.Include(x => x.Following).FirstOrDefaultAsync(
+            x => x.Id == id);
+    }
+
     public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId)
     {
         User user = await _userManager.Users.Include(x => x.Videos).Include(x => x.Followers)
