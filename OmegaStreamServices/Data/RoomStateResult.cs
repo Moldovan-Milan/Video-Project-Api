@@ -15,6 +15,8 @@ namespace OmegaStreamServices.Models
        Banned,
        HostReconected,
        RoomIsFull,
+       RoomClosed,
+       HostLeft,
        Failed
     }
 }

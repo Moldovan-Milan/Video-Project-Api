@@ -14,22 +14,22 @@ namespace OmegaStreamServices.Services
         public static ConcurrentDictionary<string, RoomState> RoomStates { get; } = new();
         private const int MAX_USER_COUNT_IN_ROOM = 8;
 
-        public Task<RoomStateResult> AddUserToRoom(string roomId, User user, string connectionId, out RoomState? roomState)
+        public RoomStateResult AddUserToRoom(string roomId, User user, string connectionId, out RoomState? roomState)
         {
             roomState = null;
             try
             {
                 if (!RoomStates.TryGetValue(roomId, out var _roomState))
                 {
-                    roomState = new RoomState
+                    roomState = RoomStates.GetOrAdd(roomId, _ => new RoomState
                     {
                         Host = user,
                         IsHostInRoom = true,
                         HostConnId = connectionId,
                         Members = new List<User> { user },
-                    };
-                    RoomStates[roomId] = roomState;
-                    return Task.FromResult(RoomStateResult.Created);
+                    });
+
+                    return RoomStateResult.Created;
                 }
                 else if (user.Id == _roomState.Host.Id && !_roomState.IsHostInRoom)
                 {
@@ -37,65 +37,65 @@ namespace OmegaStreamServices.Services
                     _roomState.Members.Add(user);
                     _roomState.HostConnId = connectionId;
                     roomState = _roomState;
-                    return Task.FromResult(RoomStateResult.HostReconected);
+                    return RoomStateResult.HostReconected;
                 }
                 else
                 {
-                    if (_roomState.BannedUsers.Where(x => x.Id == user.Id).Any())
+                    if (_roomState.BannedUsers.Any(x => x.Id == user.Id))
                     {
-                        return Task.FromResult(RoomStateResult.Banned);
+                        return RoomStateResult.Banned;
                     }
                     if (_roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
                     {
                         _roomState.WaitingForAccept[user.Id] = connectionId;
                         roomState = _roomState;
-                        return Task.FromResult(RoomStateResult.NeedsAproval);
+                        return RoomStateResult.NeedsAproval;
                     }
                     else
                     {
-                        return Task.FromResult(RoomStateResult.RoomIsFull);
+                        return RoomStateResult.RoomIsFull;
                     }
                 }
             }
             catch
             {
-                return Task.FromResult(RoomStateResult.Failed);
+                return RoomStateResult.Failed;
             }
         }
 
-        public Task<bool> RejectUser(string roomId, string userId, out string? connectionId, out RoomState? roomState)
+        public bool RejectUser(string roomId, string userId, out string? connectionId, out RoomState? roomState)
         {
             connectionId = string.Empty;
             roomState = null;
 
             if (!RoomStates.TryGetValue(roomId, out var _roomState))
             {
-                return Task.FromResult(false);
+                return false;
             }
 
             if (!_roomState.WaitingForAccept.TryGetValue(userId, out string? connId))
             {
-                return Task.FromResult(false);
+                return false;
             }
 
             connectionId = connId;
             _roomState.WaitingForAccept.Remove(userId);
             roomState = _roomState;
-            return Task.FromResult(true);
+            return true;
         }
 
-        public Task<bool> RemoveUserFromRoom(string roomId, string userId, string connectionId, out RoomState? roomState)
+        public RoomStateResult RemoveUserFromRoom(string roomId, string userId, string connectionId, out RoomState? roomState)
         {
             roomState = null;
             if (!RoomStates.TryGetValue(roomId, out var _roomState))
             {
-                return Task.FromResult(false);
+                return RoomStateResult.Failed;
             }
 
             User? user = _roomState.Members.FirstOrDefault(x => x.Id == userId);
             if (user == null)
             {
-                return Task.FromResult(false);
+                return RoomStateResult.Failed;
             }
 
             _roomState.Members.Remove(user);
@@ -109,33 +109,39 @@ namespace OmegaStreamServices.Services
             if (_roomState.Members.Count == 0 && !_roomState.IsHostInRoom)
             {
                 RoomStates.TryRemove(roomId, out _);
-                return Task.FromResult(true);
+                return RoomStateResult.RoomClosed;
+            }
+
+            if (!_roomState.IsHostInRoom)
+            {
+                roomState = _roomState;
+                return RoomStateResult.HostLeft;
             }
 
             roomState = _roomState;
-            return Task.FromResult(true);
+            return RoomStateResult.Accepted;
         }
 
-        public Task<RoomStateResult> AcceptUser(string roomId, User user, out string connectionId, out RoomState? roomState)
+        public RoomStateResult AcceptUser(string roomId, User user, out string connectionId, out RoomState? roomState)
         {
             connectionId = string.Empty;
             roomState = null;
 
             if (!RoomStates.TryGetValue(roomId, out var _roomState))
             {
-                return Task.FromResult(RoomStateResult.Failed);
+                return RoomStateResult.Failed;
             }
 
             roomState = _roomState;
 
             if (!_roomState.WaitingForAccept.TryGetValue(user.Id, out string? connId))
             {
-                return Task.FromResult(RoomStateResult.Failed);
+                return RoomStateResult.Failed;
             }
 
             if (_roomState.Members.Count >= MAX_USER_COUNT_IN_ROOM)
             {
-                return Task.FromResult(RoomStateResult.RoomIsFull);
+                return RoomStateResult.RoomIsFull;
             }
 
             connectionId = connId;
@@ -143,7 +149,7 @@ namespace OmegaStreamServices.Services
             _roomState.Members.Add(user);
             _roomState.UserIdAndConnId[user.Id] = connId;
 
-            return Task.FromResult(RoomStateResult.Accepted);
+            return RoomStateResult.Accepted;
         }
 
         public (bool IsSuccess, string SyncMessage) UpdateVideoState(string roomId, double currentTime, bool isPlaying)

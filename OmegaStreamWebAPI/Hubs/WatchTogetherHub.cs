@@ -30,42 +30,54 @@ namespace OmegaStreamWebAPI.Hubs
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
-                await SendErroMessage(Context.ConnectionId, "User not found");
+                await SendErrorMessage(Context.ConnectionId, "User not found");
                 return;
             }
 
-            RoomStateResult result = await _roomManager.AddUserToRoom(roomId, user, Context.ConnectionId, out var roomState);
-            
-            if (result == RoomStateResult.Created)
+            RoomStateResult result = _roomManager.AddUserToRoom(roomId, user, Context.ConnectionId, out var roomState);
+
+            switch (result)
             {
-                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-                await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
-                await Clients.Caller.SendAsync("YouAreHost", null);
+                case RoomStateResult.Created:
+                    await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+                    await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    await Clients.Caller.SendAsync("YouAreHost");
+                    break;
+
+                case RoomStateResult.HostReconected:
+                    if (roomState != null)
+                    {
+                        await Clients.Caller.SendAsync("YouAreHost", roomState.RoomMessages);
+                        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+                        await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                        await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
+                    }
+                    break;
+
+                case RoomStateResult.Banned:
+                    await Clients.Caller.SendAsync("YouAreBanned");
+                    break;
+
+                case RoomStateResult.Accepted:
+                    if (roomState != null)
+                    {
+                        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+                        await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    }
+                    break;
+
+                case RoomStateResult.NeedsAproval:
+                    if (roomState != null)
+                    {
+                        await Clients.Clients(roomState.HostConnId).SendAsync("JoinRequest", _mapper.Map<UserDto>(user));
+                    }
+                    break;
+
+                case RoomStateResult.RoomIsFull:
+                    await SendErrorMessage(Context.ConnectionId, "Room is full");
+                    break;
             }
-            else if (result == RoomStateResult.HostReconected && roomState != null)
-            {
-                await Clients.Caller.SendAsync("YouAreHost", roomState.RoomMessages);
-                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-                await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
-                await Clients.OthersInGroup(roomId).SendAsync("HostInRoom");
-            }
-            else if(result == RoomStateResult.Banned)
-            {
-                await Clients.Caller.SendAsync("YouAreBanned");
-            }
-            else if (result == RoomStateResult.Accepted && roomState != null)
-            {
-                await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-                await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
-            }
-            else if (result == RoomStateResult.NeedsAproval && roomState != null)
-            {
-                await Clients.Clients(roomState.HostConnId).SendAsync("JoinRequest", _mapper.Map<UserDto>(user));
-            }
-            else if (result == RoomStateResult.RoomIsFull)
-            {
-                await SendErroMessage(Context.ConnectionId, "Room is full");
-            }
+
         }
 
         public async Task AcceptUser(string roomId, string userId)
@@ -74,34 +86,35 @@ namespace OmegaStreamWebAPI.Hubs
 
             if (user == null)
             {
-                await SendErroMessage(Context.ConnectionId, "User not found");
+                await SendErrorMessage(Context.ConnectionId, "User not found");
                 return;
             }
     
 
-            var result = await _roomManager.AcceptUser(roomId, user, out string connId, out RoomState roomState);
+            var result = _roomManager.AcceptUser(roomId, user, out string connId, out RoomState roomState);
             if (result == RoomStateResult.Accepted)
             {
                 await Groups.AddToGroupAsync(connId, roomId);
 
-                VideoDto currentVideo = roomState.PlayList.Where(x => x.Id == roomState.CurrentVideoId).FirstOrDefault();
+                VideoDto? currentVideo = roomState.PlayList.FirstOrDefault(x => x.Id == roomState.CurrentVideoId);
+
                 await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, roomState.RoomMessages, roomState.PlayList, currentVideo);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
             else if (result == RoomStateResult.RoomIsFull)
             {
-                await SendErroMessage(Context.ConnectionId, "Room is full");
+                await SendErrorMessage(Context.ConnectionId, "Room is full");
                 await Clients.Client(connId).SendAsync("Error", "Room is full");
             }
             else if (result == RoomStateResult.Failed)
             {
-                await SendErroMessage(Context.ConnectionId, "Failed to accept");
+                await SendErrorMessage(Context.ConnectionId, "Failed to accept");
             }
         }
 
         public async Task RejectUser(string roomId, string userId)
         {
-            var result = await _roomManager.RejectUser(roomId, userId, out string connId, out _);
+            var result = _roomManager.RejectUser(roomId, userId, out string connId, out _);
             if (result)
             {
                 await Clients.Client(connId).SendAsync("RequestRejected");
@@ -110,19 +123,25 @@ namespace OmegaStreamWebAPI.Hubs
 
         public async Task LeaveRoom(string roomId, string userId)
         {
-            var result = await _roomManager.RemoveUserFromRoom(roomId, userId, Context.ConnectionId, out var roomState);
-            if (result && roomState == null)
+            RoomStateResult result = _roomManager.RemoveUserFromRoom(roomId, userId, Context.ConnectionId, out var roomState);
+            switch (result)
             {
-                await Clients.Group(roomId).SendAsync("RoomClosed");
-            }
-            else if (result)
-            {
-                if (!roomState.IsHostInRoom)
-                {
+                case RoomStateResult.Accepted:
+                    await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    break;
+
+                case RoomStateResult.HostLeft:
                     await Clients.Group(roomId).SendAsync("HostLeftRoom");
-                }
-                
-                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    break;
+
+                case RoomStateResult.RoomClosed:
+                    await Clients.Group(roomId).SendAsync("RoomClosed");
+                    break;
+
+                case RoomStateResult.Failed:
+                    await SendErrorMessage(Context.ConnectionId, "Failed to leave room");
+                    break;
             }
         }
 
@@ -149,13 +168,13 @@ namespace OmegaStreamWebAPI.Hubs
             User? user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
-                await SendErroMessage(Context.ConnectionId, "User not found");
+                await SendErrorMessage(Context.ConnectionId, "User not found");
                 return;
             }
 
             if (!_roomManager.SaveMessage(roomId, _mapper.Map<UserDto>(user), content, out var message))
             {
-                await SendErroMessage(Context.ConnectionId, "Failed to save message");
+                await SendErrorMessage(Context.ConnectionId, "Failed to save message");
                 return;
             }
 
@@ -167,7 +186,7 @@ namespace OmegaStreamWebAPI.Hubs
             User? user = await _userManager.FindByIdAsync(userId);
             if (user == null)
             {
-                await SendErroMessage("Error", "User not found");
+                await SendErrorMessage(Context.ConnectionId, "User not found");
                 return;
             }
             
@@ -185,7 +204,7 @@ namespace OmegaStreamWebAPI.Hubs
 
             if (video == null)
             {
-                await SendErroMessage(Context.ConnectionId, "Video not found");
+                await SendErrorMessage(Context.ConnectionId, "Video not found");
                 return;
             }
 
@@ -195,7 +214,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
             else
             {
-                await SendErroMessage(Context.ConnectionId, "An error happend");
+                await SendErrorMessage(Context.ConnectionId, "An error happend");
             }
         }
 
@@ -204,12 +223,12 @@ namespace OmegaStreamWebAPI.Hubs
             Video? video = await _videoRepository.FindByIdAsync(videoId);
             if (video == null)
             {
-                await SendErroMessage(Context.ConnectionId, "Video not found");
+                await SendErrorMessage(Context.ConnectionId, "Video not found");
                 return;
             }
             if (!_roomManager.StartVideo(roomId, video))
             {
-                await SendErroMessage(Context.ConnectionId, "An error happend");
+                await SendErrorMessage(Context.ConnectionId, "An error happend");
                 return;
             }
             await Clients.Group(roomId).SendAsync("StartVideo", video);
@@ -223,11 +242,11 @@ namespace OmegaStreamWebAPI.Hubs
             }
             else
             {
-                await SendErroMessage(Context.ConnectionId, "An error happend");
+                await SendErrorMessage(Context.ConnectionId, "An error happend");
             }
         }
 
-        private async Task SendErroMessage(string connectionId, string message) 
+        private async Task SendErrorMessage(string connectionId, string message) 
         {
             await Clients.Clients(connectionId).SendAsync("Error", message);
         }
