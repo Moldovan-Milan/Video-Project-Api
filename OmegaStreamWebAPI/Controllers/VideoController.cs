@@ -233,13 +233,19 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet("search/{searchString}")]
-        public async Task<IActionResult> Search(string searchString)
+        public async Task<IActionResult> Search(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             if (searchString == null)
                 return BadRequest("Search is null");
             try
             {
-                return Ok(await _videoMetadataService.GetVideosByName(searchString));
+                var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize);
+                bool hasMore = videos.Count == pageSize;
+                return Ok(new
+                {
+                    videos = videos,
+                    hasMore = hasMore,
+                });
             }
             catch (Exception ex)
             {

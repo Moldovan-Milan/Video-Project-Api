@@ -27,13 +27,15 @@ namespace OmegaStreamServices.Services.Repositories
             return videos;
         }
 
-        public Task<List<Video>> GetVideosByName(string name)
+        public Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize)
         {
             name = name.ToLower();
             return _dbSet
                 .Where(x => x.Title.ToLower().Contains(name))
                 .Include(x => x.User)
                 .Include(x => x.Thumbnail)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
         }
 
