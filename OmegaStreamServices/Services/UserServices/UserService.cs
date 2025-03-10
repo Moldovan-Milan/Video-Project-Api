@@ -102,18 +102,41 @@ public class UserService : IUserService
             x => x.Id == id);
     }
 
-    public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId)
+    public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize)
     {
-        User user = await _userManager.Users.Include(x => x.Videos).Include(x => x.Followers)
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+
+        User? user = await _userManager.Users
+            .Include(x => x.Videos)
+            .Include(x => x.Followers)
             .FirstOrDefaultAsync(x => x.Id == userId);
+
         if (user != null)
         {
+            var orderedVideos = user.Videos
+                .OrderByDescending(v => v.Created)
+                .Skip((pageNumber.Value - 1) * pageSize.Value)
+                .Take(pageSize.Value)
+                .ToList();
+
             UserWithVideosDto userWithVideosDto = _mapper.Map<User, UserWithVideosDto>(user);
-            //userWithVideosDto.FollowersCount = user.Followers.Count;
+            userWithVideosDto.Videos = _mapper.Map<List<VideoDto>>(orderedVideos);
+
             return userWithVideosDto;
         }
+
         return null;
     }
+
 
     public async Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize)
     {

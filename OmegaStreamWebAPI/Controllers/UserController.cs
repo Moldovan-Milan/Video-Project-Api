@@ -105,9 +105,9 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("profile/{id}")]
         [HttpGet]
-        public async Task<IActionResult> GetUserProfileWithVideos(string id)
+        public async Task<IActionResult> GetUserProfileWithVideos(string id, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
-            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
 
             return user == null ? NotFound() : Ok(user);
         }
@@ -127,26 +127,56 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Authorize]
         [Route("{id}/following")]
         [HttpGet]
-        public async Task<IActionResult> GetUserFollowedCannels(string id)
+        public async Task<IActionResult> GetUserFollowedChannels(
+            string id,
+            [FromQuery] int? videoPage,
+            [FromQuery] int? videoCount,
+            [FromQuery] int? pageNumber,
+            [FromQuery] int? pageSize)
         {
             User user = await _userService.GetUserWithFollowersById(id);
-
-            var followed_ids=(from sub in user.Following select sub.FollowedUserId).ToList();
-
-            
-
-            List<UserWithVideosDto> followed=new List<UserWithVideosDto>();
-
-            foreach (string i in followed_ids)
+            if (user == null)
             {
-                followed.Add(await _userService.GetUserProfileWithVideos(i));
+                return NotFound();
             }
 
+            var followedIds = user.Following.Select(f => f.FollowedUserId).ToList();
 
-            return user == null ? NotFound() : Ok(followed);
+            pageNumber = pageNumber ?? 1;
+            pageSize = pageSize ?? 30;
+            if (pageNumber <= 0)
+            {
+                pageNumber = 1;
+            }
+            if (pageSize <= 0)
+            {
+                pageSize = 30;
+            }
+
+            var paginatedFollowedIds = followedIds
+                .Skip((pageNumber.Value - 1) * pageSize.Value)
+                .Take(pageSize.Value)
+                .ToList();
+
+            var followed = new List<UserWithVideosDto>();
+            foreach (string userId in paginatedFollowedIds)
+            {
+                followed.Add(await _userService.GetUserProfileWithVideos(userId, videoPage, videoCount));
+            }
+            bool hasMore = followed.Count == pageSize;
+
+            var response = new
+            {
+                users = followed,
+                hasMore = hasMore
+            };
+
+            return Ok(response);
         }
+
 
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> SearchUser(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)

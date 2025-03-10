@@ -12,7 +12,7 @@ namespace OmegaStreamServices.Services.UserServices
         Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken);
         Task<User?> GetUserById(string id);
         Task<User?> GetUserWithFollowersById(string id);
-        Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId);
+        Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);
         Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
     }
 }
