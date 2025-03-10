@@ -1,9 +1,11 @@
-﻿using Amazon.S3;
+using Amazon.Runtime.Internal;
+using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.VideoServices;
 using System.Diagnostics.CodeAnalysis;
@@ -21,9 +23,11 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoMetadataService _videoMetadataService;
         private readonly IVideoLikeService _videoLikeService;
         private readonly ISubscriptionRepository _userSubscribeRepository;
+        private readonly IVideoViewService _videoViewService;
+        private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -32,6 +36,8 @@ namespace OmegaStreamWebAPI.Controllers
             _videoMetadataService = videoMetadataService;
             _videoLikeService = videoLikeService;
             _userSubscribeRepository = userSubscribeRepository;
+            _videoViewService = videoViewService;
+            _encryptionHelper = encryptionHelper;
         }
 
         #region Video Stream
@@ -77,18 +83,22 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetVideosData()
+        public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData();
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize);
             if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
                 return NotFound();
             }
-
+            bool hasMore = videos.Count == pageSize;
             _logger.LogInformation("Successfully fetched video metadata.");
-            return Ok(videos);
+            return Ok(new
+            {
+                videos = videos,
+                hasMore = hasMore
+            });
         }
 
         [HttpGet("data/{id}")]
@@ -306,6 +316,80 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         #endregion Video Upload
+
+        #region View Validation
+        [HttpPost("add-video-view")]
+        public async Task<IActionResult> AddVideoView([FromQuery] int videoId, [FromQuery] string? userId)
+        {
+            if (videoId <= 0)
+            {
+                return BadRequest("Invalid video view data.");
+            }
+
+            try
+            {
+                if(userId == null)
+                {
+                    var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                    var encryptedIp = _encryptionHelper.Encrypt(ipAddress);
+
+                    var videoView = new VideoView
+                    {
+                        UserId = null,
+                        VideoId = videoId,
+                        ViewedAt = DateTime.UtcNow,
+                        IpAddressHash = encryptedIp
+                    };
+                    if (await _videoViewService.ValidateView(videoView))
+                    {
+                        return Created("", new {message = "Video View added successfully, by Guest"});
+                    }
+                }
+                else
+                {
+                    var videoView = new VideoView
+                    {
+                        UserId=userId,
+                        VideoId=videoId,
+                        ViewedAt = DateTime.UtcNow
+                    };
+                    if(await _videoViewService.ValidateView(videoView))
+                    {
+                        return Created("", new { message = "Video View added successfully, by Logged In User" });
+                    }
+                }
+                return BadRequest("Failed to validate view");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
+
+        #endregion
+
+        #region Watch History
+        [Authorize]
+        [HttpGet("watch-history/{userId}")]
+        public async Task<IActionResult> WatchHistory(string userId, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdFromToken == null || userIdFromToken != userId)
+            {
+                return Unauthorized();
+            }
+
+            var videoViewHistory = await _videoViewService.GetUserViewHistory(userId, pageNumber, pageSize);
+
+            bool hasMore = videoViewHistory.Count == pageSize;
+            return Ok(new
+            {
+                videoViews = videoViewHistory,
+                hasMore = hasMore
+            });
+        }
+        #endregion
 
         private IActionResult HandleException(Exception ex, string resourceName)
         {

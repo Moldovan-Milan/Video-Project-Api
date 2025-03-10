@@ -127,6 +127,27 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Route("{id}/following")]
+        [HttpGet]
+        public async Task<IActionResult> GetUserFollowedCannels(string id)
+        {
+            User user = await _userService.GetUserWithFollowersById(id);
+
+            var followed_ids=(from sub in user.Following select sub.FollowedUserId).ToList();
+
+            
+
+            List<UserWithVideosDto> followed=new List<UserWithVideosDto>();
+
+            foreach (string i in followed_ids)
+            {
+                followed.Add(await _userService.GetUserProfileWithVideos(i));
+            }
+
+
+            return user == null ? NotFound() : Ok(followed);
+        }
+
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> SearchUser(string searchString)
         {
