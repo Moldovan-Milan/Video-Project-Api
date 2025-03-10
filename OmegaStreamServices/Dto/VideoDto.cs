@@ -39,5 +39,6 @@ namespace OmegaStreamServices.Dto
         public int Dislikes { get; set; }
 
         public ICollection<CommentDto> Comments { get; set; }
+        public long Views { get; set; }
     }
 }
