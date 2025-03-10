@@ -25,5 +25,6 @@ namespace OmegaStreamServices.Services
         VideoDto? PlayNextVideo(string roomId);
         bool IsRoomExist(string roomId);
         bool RemoveRoom(string roomId);
+        RoomState? GetRoomState(string roomId);
     }
 }

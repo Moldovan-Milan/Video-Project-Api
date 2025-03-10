@@ -12,8 +12,11 @@ namespace OmegaStreamWebAPI.Hubs
 {
     public class WatchTogetherHub : Hub
     {
-        private readonly UserManager<User> _userManager;
+        private const int ROOM_DELETE_TIME_IN_MS = 30000; // 30 sec
 
+        private static readonly Dictionary<string, (Task task, CancellationTokenSource cts)> DeleteRoomTasks = new();
+
+        private readonly UserManager<User> _userManager;
         private readonly IVideoRepository _videoRepository;
         private readonly IRoomStateManager _roomManager;
         private readonly IMapper _mapper;
@@ -48,6 +51,12 @@ namespace OmegaStreamWebAPI.Hubs
                 case RoomStateResult.HostReconected:
                     if (roomState != null)
                     {
+                        if (DeleteRoomTasks.TryGetValue(roomId, out (Task task, CancellationTokenSource cts) value))
+                        {
+                            value.cts.Cancel();
+                            DeleteRoomTasks.Remove(roomId);
+                        }
+
                         await Clients.Caller.SendAsync("YouAreHost", roomState.RoomMessages);
                         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                         await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
@@ -133,6 +142,14 @@ namespace OmegaStreamWebAPI.Hubs
                     break;
 
                 case RoomStateResult.HostLeft:
+                    if (DeleteRoomTasks.TryGetValue(roomId, out (Task task, CancellationTokenSource cts) value))
+                    {
+                        value.cts.Cancel();
+                        DeleteRoomTasks.Remove(roomId);
+                    }
+
+                    StartBackgroundTimer(roomId);
+
                     await Clients.Group(roomId).SendAsync("HostLeftRoom");
                     await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                     break;
@@ -264,6 +281,28 @@ namespace OmegaStreamWebAPI.Hubs
                 await Clients.Group(roomId).SendAsync("PlaybackRateChanged", value);
             }
         }
+
+        private void StartBackgroundTimer(string roomId)
+        {
+            if (!DeleteRoomTasks.ContainsKey(roomId))
+            {
+                var cts = new CancellationTokenSource();
+                var token = cts.Token;
+
+                var task = Task.Run(async () =>
+                {
+                    await Task.Delay(ROOM_DELETE_TIME_IN_MS, token);
+
+                    if (_roomManager.RemoveRoom(roomId))
+                    {
+                        await Clients.Group(roomId).SendAsync("RoomClosed");
+                    }
+                }, token);
+
+                DeleteRoomTasks[roomId] = (task, cts);
+            }
+        }
+
 
         private async Task SendErrorMessage(string connectionId, string message) 
         {

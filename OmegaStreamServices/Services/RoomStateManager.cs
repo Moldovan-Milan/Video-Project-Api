@@ -277,5 +277,10 @@ namespace OmegaStreamServices.Services
         {
             return RoomStates.TryRemove(roomId, out _);
         }
+
+        public RoomState? GetRoomState(string roomId)
+        {
+            return RoomStates[roomId];
+        }
     }
 }

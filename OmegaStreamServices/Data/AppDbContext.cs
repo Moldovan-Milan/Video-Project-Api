@@ -8,6 +8,7 @@ namespace OmegaStreamServices.Data
 {
     public class AppDbContext : IdentityDbContext<User>
     {
+        #region DbSet
         public DbSet<Video> Videos { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Image> Images { get; set; }
@@ -17,7 +18,7 @@ namespace OmegaStreamServices.Data
         public DbSet<UserChats> UserChats { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
-
+        #endregion DbSet
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
