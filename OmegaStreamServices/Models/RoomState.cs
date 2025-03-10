@@ -20,5 +20,19 @@ namespace OmegaStreamServices.Models
         public List<VideoDto> PlayList { get; set; } = new();
         public int CurrentVideoId { get; set; }
         public VideoState VideoState { get; set; } = new VideoState();
+
+        public VideoDto? GetNextVideoLoop()
+        {
+            if (PlayList == null || PlayList.Count == 0)
+                return null;
+
+            int currentIndex = PlayList.FindIndex(v => v.Id == CurrentVideoId);
+
+            // Ha az utolsó videónál járunk, akkor visszatérünk az elsőhöz
+            int nextIndex = (currentIndex + 1) % PlayList.Count;
+
+            return PlayList[nextIndex];
+        }
+
     }
 }

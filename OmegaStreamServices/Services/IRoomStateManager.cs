@@ -22,5 +22,8 @@ namespace OmegaStreamServices.Services
         bool AddVideoToPlaylist(string roomId, VideoDto video, out List<VideoDto>? playList);
         bool StartVideo(string roomId, Video video);
         bool RemoveVideoFromPlayList(string roomId, int videoId, out List<VideoDto>? playList);
+        VideoDto? PlayNextVideo(string roomId);
+        bool IsRoomExist(string roomId);
+        bool RemoveRoom(string roomId);
     }
 }

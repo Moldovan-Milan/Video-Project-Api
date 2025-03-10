@@ -252,5 +252,30 @@ namespace OmegaStreamServices.Services
             playList = roomState.PlayList;
             return true;
         }
+
+        public VideoDto? PlayNextVideo(string roomId)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                return null;
+            }
+
+            return roomState.GetNextVideoLoop();
+        }
+
+        public bool IsRoomExist(string roomId)
+        {
+            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool RemoveRoom(string roomId)
+        {
+            return RoomStates.TryRemove(roomId, out _);
+        }
     }
 }

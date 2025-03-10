@@ -13,6 +13,7 @@ namespace OmegaStreamWebAPI.Hubs
     public class WatchTogetherHub : Hub
     {
         private readonly UserManager<User> _userManager;
+
         private readonly IVideoRepository _videoRepository;
         private readonly IRoomStateManager _roomManager;
         private readonly IMapper _mapper;
@@ -98,7 +99,8 @@ namespace OmegaStreamWebAPI.Hubs
 
                 VideoDto? currentVideo = roomState.PlayList.FirstOrDefault(x => x.Id == roomState.CurrentVideoId);
 
-                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, roomState.RoomMessages, roomState.PlayList, currentVideo);
+                await Clients.Client(connId).SendAsync("RequestAccepted", roomState.VideoState.CurrentTime, roomState.VideoState.IsPlaying, 
+                    roomState.RoomMessages, roomState.PlayList, currentVideo);
                 await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
             }
             else if (result == RoomStateResult.RoomIsFull)
@@ -154,12 +156,12 @@ namespace OmegaStreamWebAPI.Hubs
             }
         }
 
-        public async Task SyncTime(string roomId, double currentTime)
+        public async Task SyncTime(string roomId, double currentTime, double playbackRate)
         {
             var roomState = _roomManager.SyncTime(roomId, currentTime);
             if (roomState != null && roomState.HostConnId == Context.ConnectionId)
             {
-                await Clients.OthersInGroup(roomId).SendAsync("HostTimeSync", currentTime);
+                await Clients.OthersInGroup(roomId).SendAsync("HostTimeSync", currentTime, playbackRate);
             }
         }
 
@@ -243,6 +245,23 @@ namespace OmegaStreamWebAPI.Hubs
             else
             {
                 await SendErrorMessage(Context.ConnectionId, "An error happend");
+            }
+        }
+
+        public async Task NextVideo(string roomId)
+        {
+            VideoDto? video = _roomManager.PlayNextVideo(roomId);
+            if (video != null)
+            {
+                await Clients.Group(roomId).SendAsync("StartVideo", video);
+            }
+        }
+
+        public async Task PlaybackRateChanged(string roomId, double value)
+        {
+            if (_roomManager.IsRoomExist(roomId))
+            {
+                await Clients.Group(roomId).SendAsync("PlaybackRateChanged", value);
             }
         }
 
