@@ -147,6 +147,26 @@ namespace OmegaStreamWebAPI.Controllers
 
             return user == null ? NotFound() : Ok(followed);
         }
+
+        [HttpGet("search/{searchString}")]
+        public async Task<IActionResult> SearchUser(string searchString)
+        {
+            if (searchString == null)
+                return BadRequest("Search string is null");
+            try
+            {
+                return Ok(await _userService.GetUsersByName(searchString));
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "search");
+            }
+        }
+
+        private IActionResult HandleException(Exception ex, string resourceName)
+        {
+            return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
+        }
     }
 }
 
