@@ -13,6 +13,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task<User?> GetUserById(string id);
         Task<User?> GetUserWithFollowersById(string id);
         Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId);
-        Task<List<UserDto?>> GetUsersByName(string name);
+        Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
     }
 }

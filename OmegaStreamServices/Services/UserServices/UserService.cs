@@ -6,6 +6,7 @@ using OmegaStreamServices.Data;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.UserServices;
+using System.Linq;
 using System.Text;
 
 public class UserService : IUserService
@@ -114,9 +115,23 @@ public class UserService : IUserService
         return null;
     }
 
-    public async Task<List<UserDto?>> GetUsersByName(string name)
+    public async Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize)
     {
-        var users = _userManager.Users.Where(x => x.UserName.ToLower().Contains(name.ToLower())).ToList();
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        var users = _userManager.Users
+            .Where(x => x.UserName.ToLower().Contains(name.ToLower()))
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToList();
         return _mapper.Map<List<UserDto?>>(users);
     }
 }

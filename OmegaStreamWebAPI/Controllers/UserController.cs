@@ -149,13 +149,19 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet("search/{searchString}")]
-        public async Task<IActionResult> SearchUser(string searchString)
+        public async Task<IActionResult> SearchUser(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             if (searchString == null)
                 return BadRequest("Search string is null");
             try
             {
-                return Ok(await _userService.GetUsersByName(searchString));
+                var users = await _userService.GetUsersByName(searchString, pageNumber, pageSize);
+                bool hasMore = users.Count == pageSize;
+                return Ok(new
+                {
+                    users = users,
+                    hasMore = hasMore
+                });
             }
             catch (Exception ex)
             {
