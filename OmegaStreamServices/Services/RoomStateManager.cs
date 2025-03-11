@@ -17,50 +17,54 @@ namespace OmegaStreamServices.Services
         public RoomStateResult AddUserToRoom(string roomId, User user, string connectionId, out RoomState? roomState)
         {
             roomState = null;
-            try
+            if (!IsContainsUser(user.Id))
             {
-                if (!RoomStates.TryGetValue(roomId, out var _roomState))
+                try
                 {
-                    roomState = RoomStates.GetOrAdd(roomId, _ => new RoomState
+                    if (!RoomStates.TryGetValue(roomId, out var _roomState))
                     {
-                        Host = user,
-                        IsHostInRoom = true,
-                        HostConnId = connectionId,
-                        Members = new List<User> { user },
-                    });
+                        roomState = RoomStates.GetOrAdd(roomId, _ => new RoomState
+                        {
+                            Host = user,
+                            IsHostInRoom = true,
+                            HostConnId = connectionId,
+                            Members = new List<User> { user },
+                        });
 
-                    return RoomStateResult.Created;
-                }
-                else if (user.Id == _roomState.Host.Id && !_roomState.IsHostInRoom)
-                {
-                    _roomState.IsHostInRoom = true;
-                    _roomState.Members.Add(user);
-                    _roomState.HostConnId = connectionId;
-                    roomState = _roomState;
-                    return RoomStateResult.HostReconected;
-                }
-                else
-                {
-                    if (_roomState.BannedUsers.Any(x => x.Id == user.Id))
-                    {
-                        return RoomStateResult.Banned;
+                        return RoomStateResult.Created;
                     }
-                    if (_roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
+                    else if (user.Id == _roomState.Host.Id && !_roomState.IsHostInRoom)
                     {
-                        _roomState.WaitingForAccept[user.Id] = connectionId;
+                        _roomState.IsHostInRoom = true;
+                        _roomState.Members.Add(user);
+                        _roomState.HostConnId = connectionId;
                         roomState = _roomState;
-                        return RoomStateResult.NeedsAproval;
+                        return RoomStateResult.HostReconected;
                     }
                     else
                     {
-                        return RoomStateResult.RoomIsFull;
+                        if (_roomState.BannedUsers.Any(x => x.Id == user.Id))
+                        {
+                            return RoomStateResult.Banned;
+                        }
+                        if (_roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
+                        {
+                            _roomState.WaitingForAccept[user.Id] = connectionId;
+                            roomState = _roomState;
+                            return RoomStateResult.NeedsAproval;
+                        }
+                        else
+                        {
+                            return RoomStateResult.RoomIsFull;
+                        }
                     }
                 }
+                catch
+                {
+                    return RoomStateResult.Failed;
+                }
             }
-            catch
-            {
-                return RoomStateResult.Failed;
-            }
+            return RoomStateResult.Failed;
         }
 
         public bool RejectUser(string roomId, string userId, out string? connectionId, out RoomState? roomState)
@@ -200,11 +204,15 @@ namespace OmegaStreamServices.Services
             members = null;
             if (!RoomStates.TryGetValue(roomId, out var roomState))
                 return false;
-            User? user = roomState.Members.FirstOrDefault(x => x.Id == userId);
-            if (user == null)
+            if (!roomState.UserIdAndConnId.TryGetValue(userId, out connId))
+            {
                 return false;
-
-            connId = roomState.UserIdAndConnId[userId];
+            }
+            var user = roomState.Members.FirstOrDefault(x => x.Id == userId);
+            if (user == null)
+            {
+                return false;
+            }
 
             roomState.Members.Remove(user);
             roomState.BannedUsers.Add(user);
@@ -280,7 +288,12 @@ namespace OmegaStreamServices.Services
 
         public RoomState? GetRoomState(string roomId)
         {
-            return RoomStates[roomId];
+            return RoomStates.TryGetValue(roomId, out var roomState) ? roomState : null;
+        }
+        
+        private bool IsContainsUser(string userId)
+        {
+            return RoomStates.Values.Any(room => room.Members.Any(member => member.Id == userId));
         }
     }
 }

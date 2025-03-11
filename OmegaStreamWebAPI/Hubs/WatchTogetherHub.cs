@@ -12,10 +12,6 @@ namespace OmegaStreamWebAPI.Hubs
 {
     public class WatchTogetherHub : Hub
     {
-        private const int ROOM_DELETE_TIME_IN_MS = 30000; // 30 sec
-
-        private static readonly Dictionary<string, (Task task, CancellationTokenSource cts)> DeleteRoomTasks = new();
-
         private readonly UserManager<User> _userManager;
         private readonly IVideoRepository _videoRepository;
         private readonly IRoomStateManager _roomManager;
@@ -48,15 +44,10 @@ namespace OmegaStreamWebAPI.Hubs
                     await Clients.Caller.SendAsync("YouAreHost");
                     break;
 
+                // Egyenlőre nem fut le soha
                 case RoomStateResult.HostReconected:
                     if (roomState != null)
                     {
-                        if (DeleteRoomTasks.TryGetValue(roomId, out (Task task, CancellationTokenSource cts) value))
-                        {
-                            value.cts.Cancel();
-                            DeleteRoomTasks.Remove(roomId);
-                        }
-
                         await Clients.Caller.SendAsync("YouAreHost", roomState.RoomMessages);
                         await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
                         await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
@@ -68,14 +59,6 @@ namespace OmegaStreamWebAPI.Hubs
                     await Clients.Caller.SendAsync("YouAreBanned");
                     break;
 
-                case RoomStateResult.Accepted:
-                    if (roomState != null)
-                    {
-                        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-                        await Clients.Group(roomId).SendAsync("JoinedToRoom", _mapper.Map<List<UserDto>>(roomState.Members));
-                    }
-                    break;
-
                 case RoomStateResult.NeedsAproval:
                     if (roomState != null)
                     {
@@ -85,6 +68,9 @@ namespace OmegaStreamWebAPI.Hubs
 
                 case RoomStateResult.RoomIsFull:
                     await SendErrorMessage(Context.ConnectionId, "Room is full");
+                    break;
+                case RoomStateResult.Failed:
+                    await Clients.Caller.SendAsync("ConnectionFailed");
                     break;
             }
 
@@ -115,7 +101,6 @@ namespace OmegaStreamWebAPI.Hubs
             else if (result == RoomStateResult.RoomIsFull)
             {
                 await SendErrorMessage(Context.ConnectionId, "Room is full");
-                await Clients.Client(connId).SendAsync("Error", "Room is full");
             }
             else if (result == RoomStateResult.Failed)
             {
@@ -141,17 +126,11 @@ namespace OmegaStreamWebAPI.Hubs
                     await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                     break;
 
+                // Egyből bezár, ha a host kilép
                 case RoomStateResult.HostLeft:
-                    if (DeleteRoomTasks.TryGetValue(roomId, out (Task task, CancellationTokenSource cts) value))
-                    {
-                        value.cts.Cancel();
-                        DeleteRoomTasks.Remove(roomId);
-                    }
-
-                    StartBackgroundTimer(roomId);
-
-                    await Clients.Group(roomId).SendAsync("HostLeftRoom");
+                    //await Clients.Group(roomId).SendAsync("HostLeftRoom");
                     await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    await Clients.Group(roomId).SendAsync("RoomClosed");
                     break;
 
                 case RoomStateResult.RoomClosed:
@@ -279,27 +258,6 @@ namespace OmegaStreamWebAPI.Hubs
             if (_roomManager.IsRoomExist(roomId))
             {
                 await Clients.Group(roomId).SendAsync("PlaybackRateChanged", value);
-            }
-        }
-
-        private void StartBackgroundTimer(string roomId)
-        {
-            if (!DeleteRoomTasks.ContainsKey(roomId))
-            {
-                var cts = new CancellationTokenSource();
-                var token = cts.Token;
-
-                var task = Task.Run(async () =>
-                {
-                    await Task.Delay(ROOM_DELETE_TIME_IN_MS, token);
-
-                    if (_roomManager.RemoveRoom(roomId))
-                    {
-                        await Clients.Group(roomId).SendAsync("RoomClosed");
-                    }
-                }, token);
-
-                DeleteRoomTasks[roomId] = (task, cts);
             }
         }
 

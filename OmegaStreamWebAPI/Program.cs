@@ -13,7 +13,6 @@ using OmegaStreamServices.Services.UserServices;
 using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
-using OmegaStreamWebAPI.WebSockets;
 using OmegaStreamWebAPI.Hubs;
 
 namespace OmegaStreamWebAPI
@@ -141,10 +140,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
-            builder.Services.AddScoped<IRoomStateManager, RoomStateManager>();
-
-            // Websocket for chat
-            builder.Services.AddSingleton<ChatWebsocketHandler>();
+            builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
             // SingalR
             builder.Services.AddSignalR();
@@ -174,8 +170,8 @@ namespace OmegaStreamWebAPI
             app.UseWebSockets();
 
             // SignalR endpoint
-            app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin");
-            app.MapHub<WatchTogetherHub>("/watch");
+            app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin").RequireAuthorization();
+            app.MapHub<WatchTogetherHub>("/watch").RequireAuthorization();
 
 
             // Configure the HTTP request pipeline.
