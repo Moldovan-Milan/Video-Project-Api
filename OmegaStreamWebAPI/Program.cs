@@ -127,7 +127,8 @@ namespace OmegaStreamWebAPI
 
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
-            
+            builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
+
 
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
@@ -140,6 +141,8 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
+            builder.Services.AddScoped<IVideoViewService, VideoViewService>();
+
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
             // SingalR

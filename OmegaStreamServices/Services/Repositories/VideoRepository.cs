@@ -16,18 +16,27 @@ namespace OmegaStreamServices.Services.Repositories
         {
         }
 
-        public async Task<List<Video>> GetAllVideosWithIncludes()
+        public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize)
         {
-            var videos = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
-.ToListAsync();
+            var videos = await _dbSet
+                .Include(v => v.User)
+                .Include(v => v.Thumbnail)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
             return videos;
         }
 
-        public Task<List<Video>> GetVideosByName(string name)
+        public Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize)
         {
             name = name.ToLower();
-            return _dbSet.Where(x => x.Title.ToLower().Contains(name))
-                .Include(x => x.User).Include(x => x.Thumbnail).ToListAsync();
+            return _dbSet
+                .Where(x => x.Title.ToLower().Contains(name))
+                .Include(x => x.User)
+                .Include(x => x.Thumbnail)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
         }
 
         public async Task<Video> GetVideoWithInclude(int id)
@@ -35,7 +44,6 @@ namespace OmegaStreamServices.Services.Repositories
             Video video = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
                 .Include(x => x.Comments).ThenInclude(x => x.User)
                 .FirstOrDefaultAsync(v => v.Id == id)!;
-            video.User.PasswordHash = String.Empty;
             return video;
         }
     }

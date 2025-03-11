@@ -18,6 +18,8 @@ namespace OmegaStreamServices.Data
         public DbSet<UserChats> UserChats { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
+        public DbSet<VideoView> VideoViews { get; set; }
+
         #endregion DbSet
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
@@ -41,6 +43,15 @@ namespace OmegaStreamServices.Data
                 .HasForeignKey(s => s.FollowedUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            builder.Entity<VideoView>()
+                .HasKey(v => new { v.VideoId, v.UserId, v.ViewedAt });
+
+            builder.Entity<VideoView>()
+                .Property(v => v.ViewedAt)
+                .HasConversion(
+                    v => v,
+                    v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
+                );
 
             #region VideoLikes table
             builder.Entity<VideoLikes>()
