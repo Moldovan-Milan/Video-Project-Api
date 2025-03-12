@@ -108,8 +108,13 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetUserProfileWithVideos(string id, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
+            bool hasMore = user.Videos.Count == pageSize;
 
-            return user == null ? NotFound() : Ok(user);
+            return user == null ? NotFound() : Ok(new 
+            { 
+                user = user,
+                hasMore = hasMore 
+            });
         }
 
         [Route("avatar/{id}")]
