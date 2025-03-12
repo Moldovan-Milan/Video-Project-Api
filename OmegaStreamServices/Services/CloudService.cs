@@ -61,5 +61,41 @@ namespace OmegaStreamServices.Services
                 throw new Exception($"Failed to upload {key} to S3.");
             }
         }
+
+        public async Task DeleteVideoFilesAsync(string path)
+        {
+            try
+            {
+                var listRequest = new ListObjectsV2Request
+                {
+                    BucketName = _settings.BucketName,
+                    Prefix = path
+                };
+
+                var listResponse = await _client.ListObjectsV2Async(listRequest);
+
+                if (listResponse.S3Objects.Count == 0)
+                {
+                    throw new Exception($"No files found: {path}");
+                }
+
+                foreach (var s3Object in listResponse.S3Objects)
+                {
+                    var deleteRequest = new DeleteObjectRequest
+                    {
+                        BucketName = _settings.BucketName,
+                        Key = s3Object.Key
+                    };
+                    await _client.DeleteObjectAsync(deleteRequest);
+                }
+
+                Console.WriteLine($"Successfully deleted all files: {path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting files {path}: {ex.Message}");
+                throw;
+            }
+        }
     }
 }
