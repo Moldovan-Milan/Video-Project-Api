@@ -24,10 +24,11 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoLikeService _videoLikeService;
         private readonly ISubscriptionRepository _userSubscribeRepository;
         private readonly IVideoViewService _videoViewService;
+        private readonly IVideoManagementService _videoManagementService;
         private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -38,6 +39,7 @@ namespace OmegaStreamWebAPI.Controllers
             _userSubscribeRepository = userSubscribeRepository;
             _videoViewService = videoViewService;
             _encryptionHelper = encryptionHelper;
+            _videoManagementService = videoManagementService;
         }
 
         #region Video Stream
@@ -395,6 +397,33 @@ namespace OmegaStreamWebAPI.Controllers
                 hasMore = hasMore
             });
         }
+        #endregion
+
+        #region Manage Videos
+        [Authorize]
+        [HttpDelete("delete/{videoId}")]
+        public async Task<IActionResult> DeleteVideo([FromRoute] int videoId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var video = await _videoMetadataService.GetVideoMetaData(videoId);
+                if (video == null)
+                {
+                    return NotFound("Video not found.");
+                }
+                if (userIdFromToken == null || video.UserId != userIdFromToken)
+                {
+                    return Unauthorized("You are not authorized to delete this video.");
+                }
+                await _videoManagementService.DeleteVideoWithAllRelations(videoId);
+                return NoContent();
+            }
+            catch (Exception ex) {
+                return StatusCode(500, "Internal server error: " + ex.Message);
+            }
+        }
+
         #endregion
 
         private IActionResult HandleException(Exception ex, string resourceName)

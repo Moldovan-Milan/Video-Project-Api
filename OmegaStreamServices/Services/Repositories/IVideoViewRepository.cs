@@ -16,5 +16,6 @@ namespace OmegaStreamServices.Services.Repositories
         void AddGuestView(VideoView view);
         Task<VideoView> GetLastUserVideoView(string userId, int videoId);
         Task AddLoggedInVideoView(VideoView view);
+        Task<List<VideoView>> GetAllVideoViewsByVideo(int videoId);
     }
 }

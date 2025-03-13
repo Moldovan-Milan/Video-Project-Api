@@ -14,5 +14,6 @@ namespace OmegaStreamServices.Services.Repositories
         Task<int> GetDisLikesByVideoId(int videoId);
         Task<string> IsLikedByUser(string userId, int videoId);
         Task<VideoLikes> GetVideoLike (string userId, int videoId);
+        Task<List<VideoLikes>> GetAllReactionsByVideo(int videoId);
     }
 }

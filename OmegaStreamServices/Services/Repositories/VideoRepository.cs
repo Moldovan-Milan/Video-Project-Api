@@ -46,5 +46,20 @@ namespace OmegaStreamServices.Services.Repositories
                 .FirstOrDefaultAsync(v => v.Id == id)!;
             return video;
         }
+        public async Task DeleteVideoWithRelationsAsync(Video video)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _dbSet.Remove(video);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
     }
 }
