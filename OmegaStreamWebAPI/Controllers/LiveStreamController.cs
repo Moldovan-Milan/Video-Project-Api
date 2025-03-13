@@ -23,7 +23,8 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpPost("start")]
-        public async Task<IActionResult> StartLiveStream([FromBody] LiveStreamDto liveStreamDto)
+        [Authorize]
+        public async Task<IActionResult> StartLiveStream([FromQuery] string streamTitle, [FromQuery] string? description)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
@@ -31,14 +32,16 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized();
             }
 
+
+
             var liveStreamId = Guid.NewGuid().ToString();
             var liveStream = new LiveStream
             {
                 Id = liveStreamId,
                 UserId = userIdFromToken,
                 StartedAt = DateTime.UtcNow,
-                StreamTitle = liveStreamDto.StreamTitle,
-                Description = liveStreamDto.Description
+                StreamTitle = streamTitle,
+                Description = description == null ? string.Empty : description
             };
 
             await _liveStreamRepository.AddLiveStreamAsync(liveStream);
