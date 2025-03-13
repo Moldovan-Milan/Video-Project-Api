@@ -4,12 +4,15 @@ using Newtonsoft.Json.Serialization;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Hubs
 {
-    public class ChatHub: Hub
+    public class ChatHub : Hub
     {
+        private static readonly ConcurrentDictionary<string, string> _connectedUsers = new ConcurrentDictionary<string, string>();
+
         private readonly IUserChatsRepository _userChatsRepository;
         private readonly IChatMessageRepository _chatMessageRepository;
         private readonly IEncryptionHelper _encryptionHelper;
@@ -21,7 +24,33 @@ namespace OmegaStreamWebAPI.Hubs
             _encryptionHelper = encryptionHelper;
         }
 
-        // Ezt a függvényt a frontend fogja meghívni
+        public override async Task OnConnectedAsync()
+        {
+            var userId = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                if (_connectedUsers.ContainsKey(userId))
+                {
+                    _connectedUsers.TryRemove(userId, out _);
+                }
+
+                _connectedUsers.TryAdd(userId, Context.ConnectionId);
+            }
+
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            var userId = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                _connectedUsers.TryRemove(userId, out _);
+            }
+
+            await base.OnDisconnectedAsync(exception);
+        }
+
         public async Task SendMessage(int chatId, string content)
         {
             var senderId = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -49,18 +78,22 @@ namespace OmegaStreamWebAPI.Hubs
                 ContractResolver = new CamelCasePropertyNamesContractResolver()
             });
 
-            // Üzenet küldése a chat résztvevőinek
-            await Clients.User(senderId).SendAsync("ReceiveMessage", jsonMessage);
-            await Clients.Users(recipientId).SendAsync("ReceiveMessage", jsonMessage);
+            if (_connectedUsers.TryGetValue(senderId, out string senderConnectionId))
+            {
+                await Clients.Client(senderConnectionId).SendAsync("ReceiveMessage", jsonMessage);
+            }
+
+            if (_connectedUsers.TryGetValue(recipientId, out string recipientConnectionId))
+            {
+                await Clients.Client(recipientConnectionId).SendAsync("ReceiveMessage", jsonMessage);
+            }
 
             chatMessage.Content = _encryptionHelper.Encrypt(content);
             await _chatMessageRepository.Add(chatMessage);
         }
 
-
         public async Task RequestChatHistory(int chatId)
         {
-
             var userId = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
@@ -85,8 +118,10 @@ namespace OmegaStreamWebAPI.Hubs
                 return msg;
             }).ToList();
 
-            await Clients.Caller.SendAsync("ReceiveChatHistory", chatMessages);
+            if (_connectedUsers.TryGetValue(userId, out string connectionId))
+            {
+                await Clients.Client(connectionId).SendAsync("ReceiveChatHistory", chatMessages);
+            }
         }
-
     }
 }

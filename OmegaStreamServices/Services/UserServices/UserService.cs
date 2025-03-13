@@ -6,6 +6,7 @@ using OmegaStreamServices.Data;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.UserServices;
+using System.Linq;
 using System.Text;
 
 public class UserService : IUserService
@@ -95,16 +96,65 @@ public class UserService : IUserService
             x => x.Id == id);
     }
 
-    public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId)
+    public async Task<User?> GetUserWithFollowersById(string id)
     {
-        User user = await _userManager.Users.Include(x => x.Videos).Include(x => x.Followers)
+        return await _userManager.Users.Include(x => x.Following).FirstOrDefaultAsync(
+            x => x.Id == id);
+    }
+
+    public async Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+
+        User? user = await _userManager.Users
+            .Include(x => x.Videos)
+            .Include(x => x.Followers)
             .FirstOrDefaultAsync(x => x.Id == userId);
+
         if (user != null)
         {
+            var orderedVideos = user.Videos
+                .OrderByDescending(v => v.Created)
+                .Skip((pageNumber.Value - 1) * pageSize.Value)
+                .Take(pageSize.Value)
+                .ToList();
+
             UserWithVideosDto userWithVideosDto = _mapper.Map<User, UserWithVideosDto>(user);
-            //userWithVideosDto.FollowersCount = user.Followers.Count;
+            userWithVideosDto.Videos = _mapper.Map<List<VideoDto>>(orderedVideos);
+
             return userWithVideosDto;
         }
+
         return null;
+    }
+
+
+    public async Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        var users = _userManager.Users
+            .Where(x => x.UserName.ToLower().Contains(name.ToLower()))
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToList();
+        return _mapper.Map<List<UserDto?>>(users);
     }
 }

@@ -13,7 +13,6 @@ using OmegaStreamServices.Services.UserServices;
 using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
-using OmegaStreamWebAPI.WebSockets;
 using OmegaStreamWebAPI.Hubs;
 
 namespace OmegaStreamWebAPI
@@ -77,9 +76,6 @@ namespace OmegaStreamWebAPI
                     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
                     options.Lockout.MaxFailedAccessAttempts = 5;
                     options.Lockout.AllowedForNewUsers = true;
-
-
-
                 }
             );
 
@@ -133,7 +129,8 @@ namespace OmegaStreamWebAPI
 
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
-            
+            builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
+
 
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
@@ -146,9 +143,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
             builder.Services.AddScoped<ICommentService, CommentService>();
+            builder.Services.AddScoped<IVideoViewService, VideoViewService>();
 
-            // Websocket for chat
-            builder.Services.AddSingleton<ChatWebsocketHandler>();
+            builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
             // SingalR
             builder.Services.AddSignalR();
@@ -178,7 +175,8 @@ namespace OmegaStreamWebAPI
             app.UseWebSockets();
 
             // SignalR endpoint
-            app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin");
+            app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin").RequireAuthorization();
+            app.MapHub<WatchTogetherHub>("/watch").RequireAuthorization();
 
 
             // Configure the HTTP request pipeline.

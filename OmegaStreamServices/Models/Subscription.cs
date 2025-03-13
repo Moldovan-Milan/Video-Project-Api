@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace OmegaStreamServices.Models
 {
@@ -13,6 +14,7 @@ namespace OmegaStreamServices.Models
         public DateTime FollowedAt { get; set; }
 
         // Relations
+        [JsonIgnore]
         [ForeignKey(nameof(FollowerId))]
         public virtual User Follower { get; set; }
 
