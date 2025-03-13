@@ -43,13 +43,20 @@ namespace OmegaStreamServices.Services.VideoServices
 
         public async Task<VideoDto?> GetVideoMetaData(int id)
         {
-            Video video = await _videoRepository.GetVideoWithInclude(id);
-            VideoDto videoDto = _mapper.Map<VideoDto>(video);
-            videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
-            videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
-            videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
-            return videoDto;
+            try
+            {
+                Video video = await _videoRepository.GetVideoWithInclude(id);
+                VideoDto videoDto = _mapper.Map<VideoDto>(video);
+                videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
+                videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
+                videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
+                return videoDto;
+            }
+            catch (Exception ex) { 
+                return null;
+            }  
         }
+
         public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize)
         {
             pageNumber = pageNumber ?? 1;
