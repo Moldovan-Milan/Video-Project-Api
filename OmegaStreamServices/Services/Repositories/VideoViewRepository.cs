@@ -78,5 +78,14 @@ namespace OmegaStreamServices.Services.Repositories
 
             _dbSet.Add(view);
         }
+
+        public async Task<List<VideoView>> GetAllVideoViewsByVideo(int videoId)
+        {
+            var views = await _dbSet
+                .Where(v => v.VideoId == videoId)
+                .ToListAsync();
+
+            return views;
+        }
     }
 }

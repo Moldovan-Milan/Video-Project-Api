@@ -33,6 +33,11 @@ namespace OmegaStreamServices.Services.Repositories
 
         }
 
+        public async Task<List<VideoLikes>> GetAllReactionsByVideo(int videoId)
+        {
+            return await _dbSet.Where(r => r.VideoId == videoId).ToListAsync();
+        }
+
         public async Task<string> IsLikedByUser(string userId, int videoId)
         {
             string result = "none";

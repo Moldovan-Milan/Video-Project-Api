@@ -62,7 +62,7 @@ namespace OmegaStreamServices.Services
             }
         }
 
-        public async Task DeleteVideoFilesAsync(string path)
+        public async Task DeleteFilesAsync(string path)
         {
             try
             {
@@ -94,6 +94,26 @@ namespace OmegaStreamServices.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Error deleting files {path}: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task DeleteFileAsync(string filePath)
+        {
+            try
+            {
+                var deleteRequest = new DeleteObjectRequest
+                {
+                    BucketName = _settings.BucketName,
+                    Key = filePath
+                };
+                await _client.DeleteObjectAsync(deleteRequest);
+
+                Console.WriteLine($"Successfully deleted file: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting file {filePath}: {ex.Message}");
                 throw;
             }
         }

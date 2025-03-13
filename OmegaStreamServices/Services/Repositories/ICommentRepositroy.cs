@@ -10,5 +10,6 @@ namespace OmegaStreamServices.Services.Repositories
 {
     public interface ICommentRepositroy: IBaseRepository<Comment>
     {
+        Task<List<Comment>> GetAllCommentsByVideo(int videoId);
     }
 }
