@@ -16,13 +16,15 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoLikesRepository _videoLikesRepository;
         private readonly IVideoViewRepository _videoViewRepository;
         private readonly ICommentRepositroy _commentRepository;
-        public VideoManagementService(IVideoRepository videoRepository, ICloudService cloudService, IVideoLikesRepository videoLikesRepository, IVideoViewRepository videoViewRepository, ICommentRepositroy commentRepositroy)
+        private readonly IImageRepository _imageRepository;
+        public VideoManagementService(IVideoRepository videoRepository, ICloudService cloudService, IVideoLikesRepository videoLikesRepository, IVideoViewRepository videoViewRepository, ICommentRepositroy commentRepository, IImageRepository imageRepository)
         {
             _videoRepository = videoRepository;
             _cloudService = cloudService;
             _videoLikesRepository = videoLikesRepository;
             _videoViewRepository = videoViewRepository;
-            _commentRepository = commentRepositroy;
+            _commentRepository = commentRepository;
+            _imageRepository = imageRepository;
         }
         public async Task DeleteVideoWithAllRelations(int id)
         {
@@ -48,6 +50,8 @@ namespace OmegaStreamServices.Services.VideoServices
             await Task.WhenAll(deleteFilesTask, deleteThumbnailTask, deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
 
             await _videoRepository.DeleteVideoWithRelationsAsync(video);
+            var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
+            _imageRepository.Delete(image);
         }
     }
 }
