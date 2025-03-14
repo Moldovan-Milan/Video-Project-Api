@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamWebAPI.Hubs;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace OmegaStreamWebAPI
 {
@@ -86,8 +87,17 @@ namespace OmegaStreamWebAPI
             // Authentication
             builder.Services.AddAuthentication(options =>
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            })
+            .AddCookie(options =>
+            {
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.Name = "AuthToken";
+                options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+                options.SlidingExpiration = true;
             })
             .AddJwtBearer(options =>
             {
@@ -105,11 +115,10 @@ namespace OmegaStreamWebAPI
                 {
                     OnMessageReceived = context =>
                     {
-                        var accessToken = context.Request.Query["access_token"];
-                        var path = context.HttpContext.Request.Path;
-                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                        var token = context.Request.Cookies["AuthToken"];
+                        if (!string.IsNullOrEmpty(token))
                         {
-                            context.Token = accessToken;
+                            context.Token = token;
                         }
                         return Task.CompletedTask;
                     }
