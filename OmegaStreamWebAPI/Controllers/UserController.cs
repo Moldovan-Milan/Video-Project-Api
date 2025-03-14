@@ -45,36 +45,63 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("login")]
         [HttpPost]
-        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, 
-            [FromForm] bool rememberMe)
+        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
             var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+
             if (token == null)
-                return Unauthorized("Invalid email or password.");
-            UserDto userDto = _mapper.Map<User, UserDto>(user);
-            if (rememberMe)
             {
-                return Ok(new {token, refreshToken, userDto});
+                return Unauthorized("Invalid email or password.");
             }
-            
-            return Ok(new {token, userDto});
+
+            UserDto userDto = _mapper.Map<User, UserDto>(user);
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = rememberMe ? DateTime.UtcNow.AddDays(7) : DateTime.UtcNow.AddHours(12)
+            };
+
+            Response.Cookies.Append("AccessToken", token, cookieOptions);
+            Response.Cookies.Append("RefreshToken", refreshToken, cookieOptions);
+
+            return Ok(new { userDto });
         }
+
 
         [Route("refresh-jwt-token")]
         [HttpPost]
-        public async Task<IActionResult> RefreshJwtToken([FromForm] string refreshToken)
+        public async Task<IActionResult> RefreshJwtToken()
         {
-            if (refreshToken == null)
+            var refreshToken = Request.Cookies["RefreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                return BadRequest("Refresh token is null");
+                return BadRequest("Refresh token is missing.");
             }
+
             var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+
             if (newToken == null)
             {
                 return Forbid();
             }
+
             UserDto userDto = _mapper.Map<UserDto>(user);
-            return Ok(new { newToken, userDto});
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddHours(12)
+            };
+
+            Response.Cookies.Append("AccessToken", newToken, cookieOptions);
+
+            return Ok(new { userDto });
         }
 
         [Route("logout")]
@@ -82,7 +109,19 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> Logout()
         {
             await _userService.LogoutUser();
-            return Ok();
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddDays(-1)
+            };
+
+            Response.Cookies.Append("AccessToken", "", cookieOptions);
+            Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+            return Ok("Logged out successfully.");
         }
 
         [Route("profile")]
