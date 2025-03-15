@@ -89,7 +89,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet]
         [Authorize]
         // TODO: Profilszerkesztéshez esetleg plusz adatotak is elküldeni
-        public async Task<IActionResult> Profile()
+        public async Task<IActionResult> Profile([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -98,9 +98,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return Forbid("You are not logged in!");
             }
 
-            User user = await _userService.GetUserById(userIdFromToken);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken,pageNumber,pageSize);
 
-            return user == null ? NotFound() : Ok(_mapper.Map<UserDto>(user));
+            return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
 
         [Route("profile/{id}")]
