@@ -85,20 +85,7 @@ namespace OmegaStreamWebAPI
                 .AddDefaultTokenProviders();
 
             // Authentication
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            })
-            .AddCookie(options =>
-            {
-                options.Cookie.HttpOnly = true;
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-                options.Cookie.SameSite = SameSiteMode.Strict;
-                options.Cookie.Name = "AuthToken";
-                options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
-                options.SlidingExpiration = true;
-            })
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -115,7 +102,7 @@ namespace OmegaStreamWebAPI
                 {
                     OnMessageReceived = context =>
                     {
-                        var token = context.Request.Cookies["AuthToken"];
+                        var token = context.Request.Cookies["AccessToken"];
                         if (!string.IsNullOrEmpty(token))
                         {
                             context.Token = token;
@@ -124,6 +111,7 @@ namespace OmegaStreamWebAPI
                     }
                 };
             });
+
 
             // Repositories
             builder.Services.AddScoped<IVideoRepository, VideoRepository>();
