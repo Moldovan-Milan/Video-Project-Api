@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using System;
@@ -53,5 +55,46 @@ namespace OmegaStreamServices.Services.VideoServices
             var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
             _imageRepository.Delete(image);
         }
+
+        public async Task EditVideo(int id, string? title, string? description, IFormFile? image)
+        {
+            Video video = await _videoRepository.GetVideoWithInclude(id);
+            if (video == null)
+            {
+                throw new KeyNotFoundException($"Video with ID {id} not found.");
+            }
+
+            if (title != null)
+            {
+                video.Title = title;
+            }
+            if (description != null)
+            {
+                video.Description = description;
+            }
+
+            if (image != null)
+            {
+                var imageToDelete = await _imageRepository.FindByIdAsync(video.ThumbnailId);
+                if (imageToDelete != null)
+                {
+                    await _cloudService.DeleteFileAsync($"images/thumbnails/{imageToDelete.Path}.{imageToDelete.Extension}");
+                    _imageRepository.Delete(imageToDelete);
+                }
+
+                var newImage = new Image
+                {
+                    Path = FileManager.GenerateFileName(),
+                    Extension = "png"
+                };
+                await _imageRepository.Add(newImage);
+                video.ThumbnailId = newImage.Id;
+
+                await _cloudService.UploadToR2($"images/thumbnails/{newImage.Path}.{newImage.Extension}", image.OpenReadStream());
+            }
+
+            _videoRepository.Update(video);
+        }
+
     }
 }
