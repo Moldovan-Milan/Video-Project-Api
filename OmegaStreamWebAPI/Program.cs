@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamWebAPI.Hubs;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace OmegaStreamWebAPI
 {
@@ -84,11 +85,7 @@ namespace OmegaStreamWebAPI
                 .AddDefaultTokenProviders();
 
             // Authentication
-            builder.Services.AddAuthentication(options =>
-            {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            })
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
@@ -105,16 +102,16 @@ namespace OmegaStreamWebAPI
                 {
                     OnMessageReceived = context =>
                     {
-                        var accessToken = context.Request.Query["access_token"];
-                        var path = context.HttpContext.Request.Path;
-                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                        var token = context.Request.Cookies["AccessToken"];
+                        if (!string.IsNullOrEmpty(token))
                         {
-                            context.Token = accessToken;
+                            context.Token = token;
                         }
                         return Task.CompletedTask;
                     }
                 };
             });
+
 
             // Repositories
             builder.Services.AddScoped<IVideoRepository, VideoRepository>();
@@ -162,7 +159,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
-                    builder => builder.WithOrigins("http://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
+                    builder => builder.WithOrigins("https://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
                                       .AllowAnyMethod()
                                       .AllowAnyHeader()
                                       .AllowCredentials());
