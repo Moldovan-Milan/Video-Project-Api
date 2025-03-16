@@ -55,7 +55,7 @@ namespace OmegaStreamWebAPI.Controllers
             }
 
             UserDto userDto = _mapper.Map<User, UserDto>(user);
-            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddMinutes(30);
+            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddDays(1);
 
             var accessTokenCookieOptions = new CookieOptions
             {
@@ -64,17 +64,19 @@ namespace OmegaStreamWebAPI.Controllers
                 SameSite = SameSiteMode.Strict,
                 Expires = expirationDate
             };
-
-            var refreshTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(30)
-            };
-
             Response.Cookies.Append("AccessToken", token, accessTokenCookieOptions);
-            Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
+
+            if (refreshToken != null)
+            {
+                var refreshTokenCookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(30),
+                };
+                Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
+            }
 
             return Ok(new { userDto });
         }
