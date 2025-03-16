@@ -11,13 +11,22 @@ public class LiveStreamRepository : ILiveStreamRepository
 
     public Task AddLiveStreamAsync(LiveStream liveStream)
     {
-        _liveStreams[liveStream.Id] = liveStream;
+        if (!_liveStreams.ContainsKey(liveStream.Id))
+        {
+            _liveStreams[liveStream.Id] = liveStream;
+        }
         return Task.CompletedTask;
     }
 
-    public async Task<LiveStream> GetLiveStreamByIdAsync(string streamId)
+    public async Task<LiveStream?> GetLiveStreamByIdAsync(string streamId)
     {
         _liveStreams.TryGetValue(streamId, out var liveStream);
+        return await Task.FromResult(liveStream);
+    }
+
+    public async Task<LiveStream?> GetLiveStreamByUserIdAsync(string userId)
+    {
+        var liveStream = _liveStreams.FirstOrDefault(x => x.Value.UserId == userId).Value;
         return await Task.FromResult(liveStream);
     }
 

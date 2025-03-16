@@ -11,6 +11,7 @@ namespace OmegaStreamServices.Models
     {
         public string Id { get; set; }
         public string UserId { get; set; }
+        public string StreamerConnectionId { get; set; } = string.Empty;
         public DateTime StartedAt { get; set; }
         public DateTime? EndedAt { get; set; }
         public string StreamTitle { get; set; }

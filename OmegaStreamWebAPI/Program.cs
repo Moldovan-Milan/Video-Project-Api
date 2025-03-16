@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamWebAPI.Hubs;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace OmegaStreamWebAPI
 {
@@ -176,7 +177,8 @@ namespace OmegaStreamWebAPI
 
             // SignalR endpoint
             app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin").RequireAuthorization();
-            app.MapHub<WatchTogetherHub>("/watch").RequireAuthorization();
+            app.MapHub<WatchTogetherHub>("/watch").RequireCors("AllowSpecificOrigin");
+            app.MapHub<LiveStreamHub>("/live").RequireCors("AllowSpecificOrigin");
 
 
             // Configure the HTTP request pipeline.

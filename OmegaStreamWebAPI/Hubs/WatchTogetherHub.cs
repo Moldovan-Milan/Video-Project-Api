@@ -10,7 +10,7 @@ using System.Collections.Concurrent;
 
 namespace OmegaStreamWebAPI.Hubs
 {
-    public class WatchTogetherHub : Hub
+    public class WatchTogetherHub : BaseHub
     {
         private readonly UserManager<User> _userManager;
         private readonly IVideoRepository _videoRepository;
@@ -260,12 +260,5 @@ namespace OmegaStreamWebAPI.Hubs
                 await Clients.Group(roomId).SendAsync("PlaybackRateChanged", value);
             }
         }
-
-
-        private async Task SendErrorMessage(string connectionId, string message) 
-        {
-            await Clients.Clients(connectionId).SendAsync("Error", message);
-        }
-
     }
 }
