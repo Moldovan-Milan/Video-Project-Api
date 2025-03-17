@@ -10,5 +10,7 @@ namespace OmegaStreamServices.Services
     {
         Task UploadToR2(string key, Stream content);
         Task<(Stream stream, string contentType)> GetFileStreamAsync(string key);
+        Task DeleteFilesAsync(string path);
+        Task DeleteFileAsync(string filePath);
     }
 }

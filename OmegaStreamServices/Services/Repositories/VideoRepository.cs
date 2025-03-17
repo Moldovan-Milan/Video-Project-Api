@@ -70,6 +70,22 @@ namespace OmegaStreamServices.Services.Repositories
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
+        public async Task DeleteVideoWithRelationsAsync(Video video)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _dbSet.Remove(video);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
         private double CalculateScore(long V, int L, int D, int C, double time, double hours)
         {
             double safeTime = Math.Max(time, 1);

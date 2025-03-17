@@ -45,36 +45,74 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("login")]
         [HttpPost]
-        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, 
-            [FromForm] bool rememberMe)
+        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
             var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+
             if (token == null)
-                return Unauthorized("Invalid email or password.");
-            UserDto userDto = _mapper.Map<User, UserDto>(user);
-            if (rememberMe)
             {
-                return Ok(new {token, refreshToken, userDto});
+                return Unauthorized("Invalid email or password.");
             }
-            
-            return Ok(new {token, userDto});
+
+            UserDto userDto = _mapper.Map<User, UserDto>(user);
+            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddDays(1);
+
+            var accessTokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = expirationDate
+            };
+            Response.Cookies.Append("AccessToken", token, accessTokenCookieOptions);
+
+            if (refreshToken != null)
+            {
+                var refreshTokenCookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(30),
+                };
+                Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
+            }
+
+            return Ok(new { userDto });
         }
+
 
         [Route("refresh-jwt-token")]
         [HttpPost]
-        public async Task<IActionResult> RefreshJwtToken([FromForm] string refreshToken)
+        public async Task<IActionResult> RefreshJwtToken()
         {
-            if (refreshToken == null)
+            var refreshToken = Request.Cookies["RefreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                return BadRequest("Refresh token is null");
+                return BadRequest("Refresh token is missing.");
             }
+
             var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+
             if (newToken == null)
             {
                 return Forbid();
             }
+
             UserDto userDto = _mapper.Map<UserDto>(user);
-            return Ok(new { newToken, userDto});
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(1)
+            };
+
+            Response.Cookies.Append("AccessToken", newToken, cookieOptions);
+
+            return Ok(new { userDto });
         }
 
         [Route("logout")]
@@ -82,14 +120,26 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> Logout()
         {
             await _userService.LogoutUser();
-            return Ok();
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(-1)
+            };
+
+            Response.Cookies.Append("AccessToken", "", cookieOptions);
+            Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+            return Ok("Logged out successfully.");
         }
 
         [Route("profile")]
         [HttpGet]
         [Authorize]
         // TODO: Profilszerkesztéshez esetleg plusz adatotak is elküldeni
-        public async Task<IActionResult> Profile()
+        public async Task<IActionResult> Profile([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -98,9 +148,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return Forbid("You are not logged in!");
             }
 
-            User user = await _userService.GetUserById(userIdFromToken);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken,pageNumber,pageSize);
 
-            return user == null ? NotFound() : Ok(_mapper.Map<UserDto>(user));
+            return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
 
         [Route("profile/{id}")]

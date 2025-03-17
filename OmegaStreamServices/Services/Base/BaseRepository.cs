@@ -47,5 +47,11 @@ namespace OmegaStreamServices.Services.Base
             _dbSet.Update(entity);
             _context.SaveChanges();
         }
+
+        public virtual async Task DeleteMultipleAsync(List<T> entities)
+        {
+            _dbSet.RemoveRange(entities);
+            await _context.SaveChangesAsync();
+        }
     }
 }
