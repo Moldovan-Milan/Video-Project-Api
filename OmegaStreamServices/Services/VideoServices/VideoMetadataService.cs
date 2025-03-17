@@ -52,9 +52,10 @@ namespace OmegaStreamServices.Services.VideoServices
                 videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
                 return videoDto;
             }
-            catch (Exception ex) { 
+            catch (Exception ex)
+            {
                 return null;
-            }  
+            }
         }
 
         public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize)
