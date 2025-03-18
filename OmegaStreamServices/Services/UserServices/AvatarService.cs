@@ -1,4 +1,5 @@
-﻿using OmegaStreamServices.Services.Repositories;
+﻿using Microsoft.Extensions.Configuration;
+using OmegaStreamServices.Services.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,20 +12,30 @@ namespace OmegaStreamServices.Services.UserServices
     {
         private readonly ICloudService _cloudService;
         private readonly IImageRepository _imageRepository;
+        private readonly IConfiguration _configuration;
 
-        public AvatarService(ICloudService cloudService, IImageRepository imageRepository)
+        private readonly string avatarPath;
+        private readonly string defaultAvatarFormat;
+
+        public AvatarService(ICloudService cloudService, IImageRepository imageRepository, IConfiguration configuration)
         {
             _cloudService = cloudService;
             _imageRepository = imageRepository;
+            _configuration = configuration;
+
+            avatarPath = _configuration["CloudService:AvatarPath"]
+                ?? throw new InvalidOperationException("CloudService:AvatarPathPath configuration is missing.");
+            defaultAvatarFormat = _configuration["UserService:DefaultAvatarFormat"]
+                ?? throw new InvalidOperationException("CloudService:DefaultAvatarFormat configuration is missing.");
         }
 
         public async Task<string> SaveAvatarAsync(Stream avatarStream)
         {
             string fileName = Guid.NewGuid().ToString();
-            string imagePath = Path.Combine("images/avatars/", $"{fileName}.png");
+            string imagePath = Path.Combine(avatarPath, $"/{fileName}.{defaultAvatarFormat}");
 
             await _cloudService.UploadToR2(imagePath, avatarStream);
-            await _imageRepository.Add(new Models.Image { Path = fileName, Extension = "png" });
+            await _imageRepository.Add(new Models.Image { Path = fileName, Extension = defaultAvatarFormat });
 
             return fileName;
         }
@@ -36,7 +47,7 @@ namespace OmegaStreamServices.Services.UserServices
             {
                 throw new Exception("Avatar not found.");
             }
-            return await _cloudService.GetFileStreamAsync($"images/avatars/{image.Path}.{image.Extension}");
+            return await _cloudService.GetFileStreamAsync($"{avatarPath}/{image.Path}.{image.Extension}");
         }
     }
 }

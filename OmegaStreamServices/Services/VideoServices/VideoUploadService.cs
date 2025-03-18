@@ -1,6 +1,7 @@
 ﻿using Amazon.Runtime.Internal.Util;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
@@ -14,12 +15,36 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoRepository _videoRepository;
         private readonly IImageRepository _imageRepository;
         private readonly ICloudService _cloudServices;
+        private readonly IConfiguration _configuration;
 
-        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices)
+        private readonly string videoUploadPath;
+        private readonly string thumbnailUploadPath;
+        private readonly string defaultThumbnailFormat;
+
+        private readonly int videoSplitTime = 30;
+        private readonly int thumbnailSplitTime = 5;
+
+        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices, IConfiguration configuration)
         {
             _videoRepository = videoRepository;
             _imageRepository = imageRepository;
             _cloudServices = cloudServices;
+            _configuration = configuration;
+
+            videoUploadPath = _configuration["CloudService:VideoPath"]
+                ?? throw new InvalidOperationException("CloudService:VideoPath configuration is missing.");
+
+            thumbnailUploadPath = _configuration["CloudService:ThumbnailPath"]
+                ?? throw new InvalidOperationException("CloudService:ThumbnailPath configuration is missing.");
+
+            defaultThumbnailFormat = _configuration["VideoService:DefaultThumbnailFormat"]
+                ?? throw new InvalidOperationException("VideoService:DefaultThumbnailFormat configuration is missing.");
+
+
+            if (int.TryParse(_configuration["VideoService:VideoSplitTime"], out int vSplitTime))
+                videoSplitTime = vSplitTime;
+            if (int.TryParse(_configuration["VideoService:ThumbnailSplitTime"], out int tSplitTime))
+                thumbnailSplitTime = tSplitTime;
         }
 
         /// <summary>
@@ -63,7 +88,7 @@ namespace OmegaStreamServices.Services.VideoServices
             await AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
 
             
-            await SaveImageToDatabase(uniqueFileName, "png");
+            await SaveImageToDatabase(uniqueFileName, defaultThumbnailFormat);
 
             TimeSpan duration = GetVideoDuration(finalPath);
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
@@ -71,16 +96,16 @@ namespace OmegaStreamServices.Services.VideoServices
             // Ha nincs indexkép, akkor készítünk egyet
             if (image == null)
             {
-                int splitTime = duration.TotalSeconds < 5 ? 0 : 5; // sec < 5 => 1st image from the video
+                int splitTime = duration.TotalSeconds < thumbnailSplitTime ? 0 : thumbnailSplitTime; // sec < thSplitTime => 1st image from the video
                 image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"temp/{uniqueFileName}", splitTime);
             }
 
             // Átalakítja az mp4-et .m3u8 formátummá
-            await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 30);
+            await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", videoSplitTime);
 
             // Ha minden megvan, akkor feltöltük a fájlokat
             await UploadVideoToR2(uniqueFileName);
-            await _cloudServices.UploadToR2($"images/thumbnails/{uniqueFileName}.png", image);
+            await _cloudServices.UploadToR2($"{thumbnailUploadPath}/{uniqueFileName}.{defaultThumbnailFormat}", image);
         }
 
         public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId)
@@ -119,7 +144,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 if (file.Contains(".ts") || file.Contains(".m3u8"))
                 {
-                    string key = $"videos/{folderName}/{Path.GetFileName(file)}";
+                    string key = $"{videoUploadPath}/{folderName}/{Path.GetFileName(file)}";
                     var fileContent = File.ReadAllBytes(file);
                     using var memoryStream = new MemoryStream(fileContent);
                     await _cloudServices.UploadToR2(key, memoryStream);
