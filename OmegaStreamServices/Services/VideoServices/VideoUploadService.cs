@@ -71,7 +71,8 @@ namespace OmegaStreamServices.Services.VideoServices
             // Ha nincs indexkép, akkor készítünk egyet
             if (image == null)
             {
-                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"temp/{uniqueFileName}");
+                int splitTime = duration.TotalSeconds < 5 ? 0 : 5; // sec < 5 => 1st image from the video
+                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"temp/{uniqueFileName}", splitTime);
             }
 
             // Átalakítja az mp4-et .m3u8 formátummá
