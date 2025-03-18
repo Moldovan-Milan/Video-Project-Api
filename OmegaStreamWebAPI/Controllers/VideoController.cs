@@ -302,7 +302,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Authorize]
         [HttpPost("assemble")]
-        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension)
+        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile? image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
@@ -310,14 +310,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return Forbid("You are not logged in!");
             }
 
-            if (image == null || image.Length == 0)
-            {
-                _logger.LogWarning("No thumbnail image provided for assembling file: {FileName}", fileName);
-                return BadRequest("No thumbnail image provided.");
-            }
 
             _logger.LogInformation("Assembling file: {FileName} with {TotalChunks} chunks.", fileName, totalChunks);
-            await using var imageStream = image.OpenReadStream();
+            await using var imageStream = image?.OpenReadStream();
             await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userIdFromToken).ConfigureAwait(false);
             _logger.LogInformation("Successfully assembled file: {FileName}", fileName);
             return Created("", new { message = "Video assembled successfully." });

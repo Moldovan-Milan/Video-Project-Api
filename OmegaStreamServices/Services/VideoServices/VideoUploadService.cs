@@ -43,7 +43,7 @@ namespace OmegaStreamServices.Services.VideoServices
         /// <param name="title">The title of the video.</param>
         /// <param name="extension">The file extension of the video.</param>
         /// <param name="userId">The ID of the user who uploaded the video.</param>
-        public async Task AssembleFile(string fileName, Stream image, int totalChunks, string title, string extension, string userId)
+        public async Task AssembleFile(string fileName, Stream? image, int totalChunks, string title, string extension, string userId)
         {
             // Generate a unique name for the video and thumbnail
             string uniqueFileName = FileManager.GenerateFileName();
@@ -67,6 +67,12 @@ namespace OmegaStreamServices.Services.VideoServices
 
             TimeSpan duration = GetVideoDuration(finalPath);
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
+
+            // Ha nincs indexkép, akkor készítünk egyet
+            if (image == null)
+            {
+                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"temp/{uniqueFileName}");
+            }
 
             // Átalakítja az mp4-et .m3u8 formátummá
             await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", 30);
@@ -130,7 +136,7 @@ namespace OmegaStreamServices.Services.VideoServices
             FileManager.DeleteDirectory($"temp/{folderName}");
         }
 
-        public async Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount)
+        private async Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount)
         {
             try
             {

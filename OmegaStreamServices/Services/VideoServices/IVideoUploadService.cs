@@ -7,13 +7,12 @@ namespace OmegaStreamServices.Services.VideoServices
     {
         Task UploadChunk(Stream chunk, string fileName, int chunkNumber);
 
-        Task AssembleFile(string fileName, Stream image, int totalChunks, string title,
+        Task AssembleFile(string fileName, Stream? image, int totalChunks, string title,
             string extension, string userId);
 
         Task SaveImageToDatabase(string fileName, string extension);
 
         Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId);
         Task UploadVideoToR2(string folderName);
-        Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount);
     }
 }

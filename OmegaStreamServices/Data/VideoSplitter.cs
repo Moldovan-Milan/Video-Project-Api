@@ -39,6 +39,37 @@ namespace OmegaStreamServices.Data
 
         }
 
+        public static async Task<Stream> GenerateThumbnailImage(string videoName, string workingDirectory, int splitTime = 5)
+        {
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = $"-i \"{videoName}\" -ss {splitTime} -vframes 1 -f image2pipe -vcodec png -",
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            try
+            {
+                process.Start();
+                var memoryStream = new MemoryStream();
+                await process.StandardOutput.BaseStream.CopyToAsync(memoryStream);
+                await process.WaitForExitAsync();
+                memoryStream.Seek(0, SeekOrigin.Begin);
+                return memoryStream;
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+
         private static List<string> ReadAndChange(string inputFileName)
         {
             // Egy string listát ad vissza, amibe beírja az elérési útvonalát, amellyel
