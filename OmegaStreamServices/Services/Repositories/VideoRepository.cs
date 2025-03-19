@@ -18,9 +18,10 @@ namespace OmegaStreamServices.Services.Repositories
             random = new Random();
         }
 
-        public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize)
+        public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize, bool isShorts)
         {
             return await Task.FromResult(_dbSet
+                .Where(x => x.IsShort == isShorts)
                 .Include(v => v.User)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
@@ -38,11 +39,11 @@ namespace OmegaStreamServices.Services.Repositories
                 .ToList());
         }
 
-        public async Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize)
+        public async Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize, bool isShorts)
         {
             name = name.ToLower();
             return await Task.FromResult(_dbSet
-                .Where(v => v.Title.ToLower().Contains(name))
+                .Where(v => v.Title.ToLower().Contains(name) && v.IsShort == isShorts)
                 .Include(v => v.User)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)

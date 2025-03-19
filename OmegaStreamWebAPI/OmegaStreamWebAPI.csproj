@@ -21,8 +21,4 @@
     <ProjectReference Include="..\OmegaStreamServices\OmegaStreamServices.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="temp\" />
-  </ItemGroup>
-
 </Project>
