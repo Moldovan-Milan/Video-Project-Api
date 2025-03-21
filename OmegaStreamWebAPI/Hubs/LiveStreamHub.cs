@@ -58,39 +58,35 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             await _liveStreamRepository.RemoveLiveStreamAsync(liveStream.Id);
+            await Clients.Caller.SendAsync("StreamStopped");
             Console.WriteLine($"Stream stopped: {liveStream.Id}");
         }
 
-        public async Task WatchLiveStream(string liveStreamId)
+        public async Task WatchStream(string streamId)
         {
-            LiveStream? liveStream = await _liveStreamRepository.GetLiveStreamByIdAsync(liveStreamId);
+            LiveStream? liveStream = await _liveStreamRepository.GetLiveStreamByIdAsync(streamId);
             if (liveStream == null)
             {
-                await SendErrorMessage(Context.ConnectionId, "Livestream ended or not found");
+                await Clients.Caller.SendAsync("LiveNotFound");
                 return;
             }
 
-            Console.WriteLine($"Viewer {Context.ConnectionId} joined stream {liveStreamId}, Streamer: {liveStream.StreamerConnectionId}");
-            //await Clients.Client(liveStream.StreamerConnectionId).SendAsync("ReceiveViewer", Context.ConnectionId);
-            await Clients.Caller.SendAsync("JoinedToLiveStream", liveStream.StreamerConnectionId);
-            //await Clients.Client(liveStream.StreamerConnectionId).SendAsync("ReceiveViewer", Context.ConnectionId);
+            await Clients.Clients(liveStream.StreamerConnectionId).SendAsync("ReceiveViewer", Context.ConnectionId);
         }
 
         public async Task SendOffer(string connectionId, string offer)
         {
-            await Clients.Clients(connectionId).SendAsync("ReceiveOffer", Context.ConnectionId, offer);
+            await Clients.Client(connectionId).SendAsync("ReceiveOffer", offer, Context.ConnectionId);
         }
 
         public async Task SendAnswer(string connectionId, string answer)
         {
-            await Clients.Clients(connectionId).SendAsync("ReceiveAnswer", answer);
+            await Clients.Client(connectionId).SendAsync("ReceiveAnswer", answer, Context.ConnectionId);
         }
 
         public async Task SendIceCandidate(string connectionId, string candidate)
         {
-            await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", candidate);
+            await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", candidate, Context.ConnectionId);
         }
-
-        
     }
 }
