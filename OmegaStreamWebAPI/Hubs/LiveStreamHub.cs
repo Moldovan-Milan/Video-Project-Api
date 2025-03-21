@@ -43,6 +43,7 @@ namespace OmegaStreamWebAPI.Hubs
                 Description = desc ?? string.Empty
             };
 
+            await Groups.AddToGroupAsync(Context.ConnectionId, liveStreamId);
             await _liveStreamRepository.AddLiveStreamAsync(liveStream);
             await Clients.Caller.SendAsync("LiveStreamStarted", liveStreamId);
             Console.WriteLine($"Stream started: {liveStreamId}, Streamer: {Context.ConnectionId}");
@@ -58,7 +59,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             await _liveStreamRepository.RemoveLiveStreamAsync(liveStream.Id);
-            await Clients.Caller.SendAsync("StreamStopped");
+            await Clients.Group(liveStream.Id).SendAsync("StreamStopped");
             Console.WriteLine($"Stream stopped: {liveStream.Id}");
         }
 
@@ -71,6 +72,7 @@ namespace OmegaStreamWebAPI.Hubs
                 return;
             }
 
+            await Groups.AddToGroupAsync(Context.ConnectionId, liveStream.Id);
             await Clients.Clients(liveStream.StreamerConnectionId).SendAsync("ReceiveViewer", Context.ConnectionId);
         }
 
