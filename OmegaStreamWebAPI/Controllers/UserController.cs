@@ -143,6 +143,7 @@ namespace OmegaStreamWebAPI.Controllers
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+
             if (userIdFromToken == null)
             {
                 return Forbid("You are not logged in!");
@@ -254,10 +255,37 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Authorize]
+        [Route("profile/update-username")]
+        [HttpPost]
+        public async Task<IActionResult> UpdateUsername([FromQuery] string newName)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken == null)
+            {
+                return Forbid("You are not logged in!");
+            }
+
+            User user = await _userService.GetUserById(userIdFromToken);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            await _userService.UpdateUsername(user,newName);
+
+            return Ok(_mapper.Map<UserDto>(user));
+
+        }
+
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }
+
+        
     }
 }
 

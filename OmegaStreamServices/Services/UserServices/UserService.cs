@@ -18,13 +18,14 @@ public class UserService : IUserService
     private readonly IAvatarService _avatarService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IMapper _mapper;
+    private readonly AppDbContext _context;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
 
     public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper)
+        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context)
     {
         _userManager = userManager;
         _passwordHasher = passwordHasher;
@@ -36,6 +37,8 @@ public class UserService : IUserService
 
         JWT_KEY = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
         ISSUER = _configuration["Jwt:Issuer"]!;
+        _context = context;
+
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
@@ -157,4 +160,13 @@ public class UserService : IUserService
             .ToList();
         return _mapper.Map<List<UserDto?>>(users);
     }
+
+    public async Task<bool> UpdateUsername(User user,string newName)
+    {
+        var result = await _userManager.SetUserNameAsync(user, newName);
+        await _userManager.UpdateNormalizedUserNameAsync(user);
+        _context.SaveChangesAsync();
+        return result.Succeeded;
+    }
+
 }
