@@ -32,7 +32,7 @@ namespace OmegaStreamServices.Services.UserServices
         public async Task<string> SaveAvatarAsync(Stream avatarStream)
         {
             string fileName = Guid.NewGuid().ToString();
-            string imagePath = Path.Combine(avatarPath, $"/{fileName}.{defaultAvatarFormat}");
+            string imagePath = $"{avatarPath}/{fileName}.{defaultAvatarFormat}";
 
             await _cloudService.UploadToR2(imagePath, avatarStream);
             await _imageRepository.Add(new Models.Image { Path = fileName, Extension = defaultAvatarFormat });

@@ -6,6 +6,7 @@ using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using WMPLib;
+using System.Linq.Expressions;
 
 namespace OmegaStreamServices.Services.VideoServices
 {
@@ -55,7 +56,11 @@ namespace OmegaStreamServices.Services.VideoServices
         /// <param name="chunkNumber">The chunk number.</param>
         public async Task UploadChunk(Stream chunk, string fileName, int chunkNumber)
         {
-            var chunkPath = Path.Combine("temp", $"{fileName}.part{chunkNumber}");
+            if (!File.Exists($"{AppContext.BaseDirectory}/temp"))
+            {
+                FileManager.CreateDirectory($"{AppContext.BaseDirectory}/temp");
+            }
+            var chunkPath = Path.Combine($"{AppContext.BaseDirectory}/temp", $"{fileName}.part{chunkNumber}");
             await FileManager.SaveStreamToFileAsync(chunkPath, chunk);
         }
 
@@ -70,13 +75,17 @@ namespace OmegaStreamServices.Services.VideoServices
         /// <param name="userId">The ID of the user who uploaded the video.</param>
         public async Task AssembleFile(string fileName, Stream? image, int totalChunks, string title, string extension, string userId)
         {
+            if (!File.Exists($"{AppContext.BaseDirectory}/temp"))
+            {
+                FileManager.CreateDirectory($"{AppContext.BaseDirectory}/temp");
+            }
             // Generate a unique name for the video and thumbnail
             string uniqueFileName = FileManager.GenerateFileName();
 
             // Először egy külön mappát hoz létre
-            FileManager.CreateDirectory($"temp/{uniqueFileName}");
+            FileManager.CreateDirectory($"{AppContext.BaseDirectory}/temp/{uniqueFileName}");
             // A készülő .mp4 fájl végleges útvonala
-            var finalPath = Path.Combine($"temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
+            var finalPath = Path.Combine($"{AppContext.BaseDirectory}/temp/{uniqueFileName}", $"{uniqueFileName}.{extension}");
 
             // Ha a fájl már létezik, akkor nem kell semmit sem csinálni
             if (File.Exists(finalPath))
@@ -85,23 +94,24 @@ namespace OmegaStreamServices.Services.VideoServices
             }
 
             // Ez hozza létre az mp4 videót
-            await AssembleAndSaveVideo(finalPath, fileName, "temp", totalChunks);
+            await AssembleAndSaveVideo(finalPath, fileName, $"{AppContext.BaseDirectory}/temp", totalChunks);
 
-            
+
             await SaveImageToDatabase(uniqueFileName, defaultThumbnailFormat);
 
-            TimeSpan duration = GetVideoDuration(finalPath);
+            var duration = GetVideoDuration(finalPath);
+
             await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
 
             // Ha nincs indexkép, akkor készítünk egyet
             if (image == null)
             {
                 int splitTime = duration.TotalSeconds < thumbnailSplitTime ? 0 : thumbnailSplitTime; // sec < thSplitTime => 1st image from the video
-                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"temp/{uniqueFileName}", splitTime);
+                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"{AppContext.BaseDirectory}/temp/{uniqueFileName}", splitTime);
             }
 
             // Átalakítja az mp4-et .m3u8 formátummá
-            await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"temp/{uniqueFileName}", videoSplitTime);
+            await VideoSplitter.SplitMP4ToM3U8($"{uniqueFileName}.{extension}", uniqueFileName, $"{AppContext.BaseDirectory}/temp/{uniqueFileName}", videoSplitTime);
 
             // Ha minden megvan, akkor feltöltük a fájlokat
             await UploadVideoToR2(uniqueFileName);
@@ -110,12 +120,13 @@ namespace OmegaStreamServices.Services.VideoServices
 
         public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId)
         {
+
             Image image = await _imageRepository.FindImageByPath(uniqueFileName);
             Video video = new Video
             {
                 Path = uniqueFileName,
                 Created = DateTime.Now,
-                Duration = duration,
+                Duration = new TimeSpan(duration.Hours, duration.Minutes, duration.Seconds),
                 Extension = videoExtension,
                 Title = title,
                 Description = "Teszt",
@@ -139,7 +150,7 @@ namespace OmegaStreamServices.Services.VideoServices
         public async Task UploadVideoToR2(string folderName)
         {
             // Egy tömböt ad vissza, amiben benne van minden fájl elérési útvonala, amit a mappa tartalmaz
-            string[] files = Directory.GetFiles($"temp/{folderName}", "*.*", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles($"{AppContext.BaseDirectory}/temp/{folderName}", "*.*", SearchOption.AllDirectories);
             var uploadTasks = files.Select(async file =>
             {
                 if (file.Contains(".ts") || file.Contains(".m3u8"))
