@@ -56,7 +56,7 @@ namespace OmegaStreamServices.Services.VideoServices
             _imageRepository.Delete(image);
         }
 
-        public async Task EditVideo(int id, string? title, string? description, IFormFile? image)
+        public async Task EditVideo(int id, string? title, string? description/*, IFormFile? image*/)
         {
             Video video = await _videoRepository.GetVideoWithInclude(id);
             if (video == null)
@@ -73,6 +73,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 video.Description = description;
             }
 
+            /*
             if (image != null)
             {
                 var imageToDelete = await _imageRepository.FindByIdAsync(video.ThumbnailId);
@@ -92,6 +93,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
                 await _cloudService.UploadToR2($"images/thumbnails/{newImage.Path}.{newImage.Extension}", image.OpenReadStream());
             }
+            */
 
             _videoRepository.Update(video);
         }

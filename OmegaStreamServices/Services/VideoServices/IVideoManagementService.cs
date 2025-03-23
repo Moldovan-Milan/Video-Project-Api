@@ -10,6 +10,6 @@ namespace OmegaStreamServices.Services.VideoServices
     public interface IVideoManagementService
     {
         public Task DeleteVideoWithAllRelations(int id);
-        public Task EditVideo(int id, string? title, string? description, IFormFile? image);
+        public Task EditVideo(int id, string? title, string? description/*, IFormFile? image*/);
     }
 }
