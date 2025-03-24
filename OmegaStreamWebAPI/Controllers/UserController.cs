@@ -298,6 +298,17 @@ namespace OmegaStreamWebAPI.Controllers
                     return NotFound();
                 }
                 await _userService.DeleteAccount(userIdFromToken);
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                };
+
+                Response.Cookies.Append("AccessToken", "", cookieOptions);
+                Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
                 return NoContent();
             }
             catch (Exception ex)
