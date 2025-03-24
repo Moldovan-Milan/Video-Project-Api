@@ -224,8 +224,8 @@ public class UserService : IUserService
             if (user.Avatar != null && user.Avatar.Path != "default_avatar")
             {
                 var avatar = await _imageRepository.FindByIdAsync(user.AvatarId);
-                _imageRepository.Delete(avatar);
                 await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
+                _imageRepository.Delete(avatar);
             }
 
             // TODO: Delete Banner
