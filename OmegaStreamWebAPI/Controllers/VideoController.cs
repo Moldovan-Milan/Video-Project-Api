@@ -446,8 +446,8 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> EditVideo(
             [FromRoute] int videoId,
             [FromForm] string? title,
-            [FromForm] string? description/*,
-            [FromForm] IFormFile? image*/)
+            [FromForm] string? description,
+            [FromForm] IFormFile? image)
         {
             try
             {
@@ -468,7 +468,7 @@ namespace OmegaStreamWebAPI.Controllers
                     return Forbid();
                 }
 
-                await _videoManagementService.EditVideo(videoId, title, description/*, image*/);
+                await _videoManagementService.EditVideo(videoId, title, description, image);
                 return NoContent();
             }
             catch (KeyNotFoundException)
