@@ -441,6 +441,51 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Authorize]
+        [HttpPatch("update/{videoId}")]
+        public async Task<IActionResult> EditVideo(
+            [FromRoute] int videoId,
+            [FromForm] string? title,
+            [FromForm] string? description/*,
+            [FromForm] IFormFile? image*/)
+        {
+            try
+            {
+                string? userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdFromToken))
+                {
+                    return Unauthorized("Invalid user token.");
+                }
+
+                var video = await _videoMetadataService.GetVideoMetaData(videoId);
+                if (video == null)
+                {
+                    return NotFound("Video not found.");
+                }
+
+                if (video.UserId != userIdFromToken)
+                {
+                    return Forbid();
+                }
+
+                await _videoManagementService.EditVideo(videoId, title, description/*, image*/);
+                return NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Video not found.");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+
         #endregion
 
         private IActionResult HandleException(Exception ex, string resourceName)

@@ -97,7 +97,7 @@ namespace OmegaStreamServices.Services.VideoServices
             // Ez hozza létre az mp4 videót
             await AssembleAndSaveVideo(finalPath, fileName, $"{AppContext.BaseDirectory}/temp", totalChunks);
 
-            
+
             await SaveImageToDatabase(uniqueFileName, defaultThumbnailFormat);
 
             var (width, height, duration) = GetVideoProperties($"{finalPath}");
@@ -111,7 +111,7 @@ namespace OmegaStreamServices.Services.VideoServices
             if (image == null)
             {
                 int splitTime = duration.TotalSeconds < thumbnailSplitTime ? 0 : thumbnailSplitTime; // sec < thSplitTime => 1st image from the video
-                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"{ AppContext.BaseDirectory}/temp/{uniqueFileName}", splitTime);
+                image = await VideoSplitter.GenerateThumbnailImage($"{uniqueFileName}.{extension}", $"{AppContext.BaseDirectory}/temp/{uniqueFileName}", splitTime);
             }
 
             // Átalakítja az mp4-et .m3u8 formátummá
@@ -210,43 +210,5 @@ namespace OmegaStreamServices.Services.VideoServices
             IWMPMedia mediaInfo = wmp.newMedia(path);
             return TimeSpan.FromSeconds(mediaInfo.duration);
         }
-
-        private (int width, int height, TimeSpan duration) GetVideoProperties(string path)
-        {
-            try
-            {
-                if (!File.Exists(path))
-                {
-                    Console.WriteLine($"The file does not exist at: {path}");
-                }
-
-                MediaInfo.MediaInfo mediaInfo = new MediaInfo.MediaInfo();
-                mediaInfo.Open(path);
-
-                string widthStr = mediaInfo.Get(StreamKind.Video, 0, "Width");
-                string heightStr = mediaInfo.Get(StreamKind.Video, 0, "Height");
-                string durationStr = mediaInfo.Get(StreamKind.General, 0, "Duration");
-
-                if (string.IsNullOrEmpty(widthStr) || string.IsNullOrEmpty(heightStr) || string.IsNullOrEmpty(durationStr))
-                {
-                    throw new Exception("Missing or invalid media property values.");
-                }
-
-                int width = int.Parse(widthStr);
-                int height = int.Parse(heightStr);
-                double durationInMilisec = double.Parse(durationStr);
-
-                TimeSpan duration = TimeSpan.FromMilliseconds(durationInMilisec);
-
-                mediaInfo.Close();
-                return (width, height, duration);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error happened: {ex.Message}");
-            }
-            return (0, 0, TimeSpan.Zero);
-        }
-
     }
 }
