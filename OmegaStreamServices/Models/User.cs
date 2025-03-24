@@ -17,6 +17,9 @@ namespace OmegaStreamServices.Models
         [Column("created")] 
         [Required] 
         public DateTime Created { get; set; }
+        public int? UserThemeId { get; set; }
+        [ForeignKey("UserThemeId")]
+        public UserTheme? UserTheme { get; set; }
 
         //[Column("verified")]
         //[Required]

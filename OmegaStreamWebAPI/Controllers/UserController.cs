@@ -154,6 +154,22 @@ namespace OmegaStreamWebAPI.Controllers
             return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
 
+        [HttpGet]
+        [Route("banner/{id}")]
+        public async Task<IActionResult> GetBannerImage(int id)
+        {
+            try
+            {
+                (Stream file, string extension) = await _userService.GetBannerAsync(id);
+                return File(file, extension);
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [Route("profile/{id}")]
         [HttpGet]
         public async Task<IActionResult> GetUserProfileWithVideos(string id, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
@@ -278,6 +294,32 @@ namespace OmegaStreamWebAPI.Controllers
 
             return Ok(_mapper.Map<UserDto>(user));
 
+        }
+
+        [Authorize]
+        [HttpPost]
+        [Route("profile/set-theme")]
+        public async Task<IActionResult> SetTheme([FromForm] string? background, [FromForm] string? textColor,
+            [FromForm] IFormFile? bannerImage)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken == null)
+            {
+                return Forbid("You are not logged in!");
+            }
+
+            User? user = await _userService.GetUserById(userIdFromToken);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            if (!await _userService.SaveTheme(background, textColor, bannerImage.OpenReadStream(), user)){
+                return BadRequest("An error happened!");
+            }
+            return Ok();
         }
 
         private IActionResult HandleException(Exception ex, string resourceName)

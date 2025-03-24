@@ -1,4 +1,5 @@
-﻿using System;
+﻿using OmegaStreamServices.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,7 @@ namespace OmegaStreamServices.Dto
         public int AvatarId { get; set; }
         public int FollowersCount { get; set; }
         public DateTime Created { get; set; }
+        public UserTheme UserTheme { get; set; }
         public ICollection<VideoDto> Videos { get; set; }
     }
 }

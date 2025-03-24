@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.UserServices;
 using System.Linq;
@@ -21,13 +22,15 @@ public class UserService : IUserService
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
+    private readonly IUserThemeRepository _userThemeRepository;
+    private readonly ICloudService _cloudService;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
 
     public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository)
+        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService)
     {
         _userManager = userManager;
         _passwordHasher = passwordHasher;
@@ -42,6 +45,8 @@ public class UserService : IUserService
         _context = context;
 
         _imageRepository = imageRepository;
+        _userThemeRepository = userThemeRepository;
+        _cloudService = cloudService;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
@@ -125,6 +130,7 @@ public class UserService : IUserService
         User? user = await _userManager.Users
             .Include(x => x.Videos)
             .Include(x => x.Followers)
+            .Include(x=>x.UserTheme)
             .FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user != null)
@@ -173,4 +179,68 @@ public class UserService : IUserService
         return result.Succeeded;
     }
 
+    public async Task<bool> SaveTheme(string background, string textColor, Stream bannerImage, User user)
+    {
+        try
+        {
+            UserTheme userTheme = new UserTheme
+            {
+                Background = background,
+                TextColor = textColor
+            };
+
+            string fileName = await SaveBanner(bannerImage);
+            var image = await _imageRepository.FindImageByPath(fileName);
+            userTheme.BannerId = image.Id;
+            await _userThemeRepository.Add(userTheme);
+
+            user.UserThemeId = userTheme.Id;
+            await _userManager.UpdateAsync(user);
+            return true;
+        }
+       catch(Exception ex)
+       {
+            Console.WriteLine(ex);
+            return false;
+       }
+        
+    }
+
+    private async Task<string> SaveBanner(Stream avatarStream)
+    {
+        string fileName = Guid.NewGuid().ToString();
+        string imagePath = $"images/banner/{fileName}.png";
+
+        await _cloudService.UploadToR2(imagePath, avatarStream);
+        await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
+
+        return fileName;
+    }
+
+    public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
+    {
+        var image = await _imageRepository.FindByIdAsync(bannerId);
+        if (image == null)
+        {
+            throw new Exception("Banner not found.");
+        }
+        return await _cloudService.GetFileStreamAsync($"images/banner/{image.Path}.{image.Extension}");
+    }
+
+    /*
+     User user = await _userManager.Users.Include(x => x.UserTheme).FirstOrDefaultAsync(x => x.Id == userId)!;
+        if (user.UserTheme == null)
+        {
+            user.UserTheme = new();
+        }
+
+        if (user.UserTheme.TextColor !=  textColor)
+        {
+            user.UserTheme.TextColor = textColor;
+        }
+        if (user.UserTheme.Background != background)
+        {
+            user.UserTheme.Background = background;
+        }
+     */
 }
