@@ -204,11 +204,41 @@ namespace OmegaStreamServices.Services.VideoServices
             }
         }
 
-        private TimeSpan GetVideoDuration(string path)
+        private (int width, int height, TimeSpan duration) GetVideoProperties(string path)
         {
-            WindowsMediaPlayer wmp = new WindowsMediaPlayer();
-            IWMPMedia mediaInfo = wmp.newMedia(path);
-            return TimeSpan.FromSeconds(mediaInfo.duration);
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"The file does not exist at: {path}");
+                }
+
+                MediaInfo.MediaInfo mediaInfo = new MediaInfo.MediaInfo();
+                mediaInfo.Open(path);
+
+                string widthStr = mediaInfo.Get(StreamKind.Video, 0, "Width");
+                string heightStr = mediaInfo.Get(StreamKind.Video, 0, "Height");
+                string durationStr = mediaInfo.Get(StreamKind.General, 0, "Duration");
+
+                if (string.IsNullOrEmpty(widthStr) || string.IsNullOrEmpty(heightStr) || string.IsNullOrEmpty(durationStr))
+                {
+                    throw new Exception("Missing or invalid media property values.");
+                }
+
+                int width = int.Parse(widthStr);
+                int height = int.Parse(heightStr);
+                double durationInMilisec = double.Parse(durationStr);
+
+                TimeSpan duration = TimeSpan.FromMilliseconds(durationInMilisec);
+
+                mediaInfo.Close();
+                return (width, height, duration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error happened: {ex.Message}");
+            }
+            return (0, 0, TimeSpan.Zero);
         }
     }
 }
