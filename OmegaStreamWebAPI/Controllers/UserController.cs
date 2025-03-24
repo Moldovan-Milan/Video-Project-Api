@@ -283,7 +283,7 @@ namespace OmegaStreamWebAPI.Controllers
         [Authorize]
         [Route("profile/delete-account")]
         [HttpDelete]
-        public async Task<IActionResult> DeleteAccount(string userId)
+        public async Task<IActionResult> DeleteAccount()
         {
             try
             {
@@ -297,7 +297,7 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound();
                 }
-                await _userService.DeleteAccount(userId);
+                await _userService.DeleteAccount(userIdFromToken);
                 return NoContent();
             }
             catch (Exception ex)
