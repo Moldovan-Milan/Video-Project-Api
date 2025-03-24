@@ -183,7 +183,7 @@ public class UserService : IUserService
     {
         try
         {
-            var userTheme = user.UserThemeId != null
+            var userTheme = user.UserTheme != null
                 ? user.UserTheme
                 : new UserTheme();
 
@@ -219,16 +219,10 @@ public class UserService : IUserService
                     }
                 }
             }
+            _userThemeRepository.Update(userTheme);
+            user.UserTheme = userTheme;
+            await _userManager.UpdateAsync(user);
 
-            if (user.UserThemeId == null)
-            {
-                await _userThemeRepository.Add(userTheme);
-                user.UserTheme = userTheme;
-                await _userManager.UpdateAsync(user);
-            }
-
-            else
-                _userThemeRepository.Update(userTheme);
 
             return true;
         }
