@@ -140,6 +140,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<ICommentService, CommentService>();
             builder.Services.AddScoped<IVideoViewService, VideoViewService>();
             builder.Services.AddScoped<IVideoManagementService, VideoManagementService>();
+            builder.Services.AddScoped<IImageService, ImageService>();
 
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
