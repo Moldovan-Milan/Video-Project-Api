@@ -17,8 +17,8 @@ namespace OmegaStreamServices.Services.UserServices
         Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
         public Task<bool> UpdateUsername(User user,string newName);
 
-        Task<bool> SaveTheme(string background, string textColor,
-             Stream bannerImage, User user);
+        Task<bool> SaveTheme(string? background, string? textColor,
+             Stream? bannerImage, User user);
         Task<(Stream file, string contentType)> GetBannerAsync(int avatarId);
     }
 }

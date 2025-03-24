@@ -36,16 +36,27 @@ namespace OmegaStreamServices.Services
             return await GetStream(path, image);
         }
 
+        public async Task<bool> ReplaceImage(string cloudPath, string imagePath, Stream image)
+        {
+            string? result = await SaveImage(cloudPath, imagePath, image);
+            return result == null ? false : true;
+        }
+
         public async Task<string?> SaveImage(string cloudPath, Stream imageStream)
         {
             string fileName = Guid.NewGuid().ToString();
+            return await SaveImage(cloudPath, fileName, imageStream);
+        }
+
+        private async Task<string?> SaveImage(string cloudPath, string fileName, Stream imageStream)
+        {
             try
             {
                 await _cloudService.UploadToR2($"{cloudPath}/{fileName}.png", imageStream);
                 await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
                 return fileName;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine($"An error happened: {ex.Message}");
                 return string.Empty;

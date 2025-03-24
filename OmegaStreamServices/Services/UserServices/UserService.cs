@@ -104,7 +104,7 @@ public class UserService : IUserService
 
     public async Task<User?> GetUserById(string id)
     {
-        return await _userManager.Users.Include(x => x.Followers).FirstOrDefaultAsync(
+        return await _userManager.Users.Include(x => x.Followers).Include(x => x.UserTheme).FirstOrDefaultAsync(
             x => x.Id == id);
     }
 
@@ -179,76 +179,74 @@ public class UserService : IUserService
         return result.Succeeded;
     }
 
-    public async Task<bool> SaveTheme(string background, string textColor, Stream bannerImage, User user)
+    public async Task<bool> SaveTheme(string? background, string? textColor, Stream? bannerImage, User user)
     {
         try
         {
-            UserTheme userTheme = new UserTheme
+            var userTheme = user.UserThemeId != null
+                ? user.UserTheme
+                : new UserTheme();
+
+            if (background != "null")
+                userTheme.Background = background;
+
+            if (textColor != "null")
+                userTheme.TextColor = textColor;
+
+            if (bannerImage != null)
             {
-                Background = background,
-                TextColor = textColor
-            };
+                if (userTheme.BannerId != null)
+                {
+                    var existingImage = await _imageRepository.FindByIdAsync(userTheme.BannerId.Value);
+                    if (existingImage != null)
+                    {
+                        if (!await _imageService.ReplaceImage("images/banner", existingImage.Path, bannerImage))
+                        {
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    string fileName = await SaveBanner(bannerImage);
+                    if (string.IsNullOrEmpty(fileName))
+                        return false;
 
-            string fileName = await SaveBanner(bannerImage);
+                    var image = await _imageRepository.FindImageByPath(fileName);
+                    if (image != null)
+                    {
+                        userTheme.BannerId = image.Id;
+                    }
+                }
+            }
 
-            if (fileName == string.Empty)
-                return false;
+            if (user.UserThemeId == null)
+            {
+                await _userThemeRepository.Add(userTheme);
+                user.UserTheme = userTheme;
+                await _userManager.UpdateAsync(user);
+            }
 
-            var image = await _imageRepository.FindImageByPath(fileName);
-            userTheme.BannerId = image.Id;
-            await _userThemeRepository.Add(userTheme);
+            else
+                _userThemeRepository.Update(userTheme);
 
-            user.UserThemeId = userTheme.Id;
-            await _userManager.UpdateAsync(user);
             return true;
         }
-       catch(Exception ex)
-       {
+        catch (Exception ex)
+        {
             Console.WriteLine(ex);
             return false;
-       }
-        
+        }
     }
+
 
     private async Task<string> SaveBanner(Stream bannerStream)
     {
         return await _imageService.SaveImage("images/banner", bannerStream);
-
-        //string fileName = Guid.NewGuid().ToString();
-        //string imagePath = $"images/banner/{fileName}.png";
-
-        //await _cloudService.UploadToR2(imagePath, avatarStream);
-        //await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
-
-        //return fileName;
     }
 
     public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
     {
         return await _imageService.GetImageStreamByIdAsync("images/banner", bannerId);
-
-        //var image = await _imageRepository.FindByIdAsync(bannerId);
-        //if (image == null)
-        //{
-        //    throw new Exception("Banner not found.");
-        //}
-        //return await _cloudService.GetFileStreamAsync($"images/banner/{image.Path}.{image.Extension}");
     }
-
-    /*
-     User user = await _userManager.Users.Include(x => x.UserTheme).FirstOrDefaultAsync(x => x.Id == userId)!;
-        if (user.UserTheme == null)
-        {
-            user.UserTheme = new();
-        }
-
-        if (user.UserTheme.TextColor !=  textColor)
-        {
-            user.UserTheme.TextColor = textColor;
-        }
-        if (user.UserTheme.Background != background)
-        {
-            user.UserTheme.Background = background;
-        }
-     */
 }

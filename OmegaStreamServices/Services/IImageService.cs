@@ -11,5 +11,6 @@ namespace OmegaStreamServices.Services
         Task<string> SaveImage(string cloudPath, Stream imageStream);
         Task<(Stream?, string? contentType)> GetImageStreamByPathAsync(string cloudPath, string path);
         Task<(Stream?, string? contentType)> GetImageStreamByIdAsync(string cloudPath, int id);
+        Task<bool> ReplaceImage(string cloudPath, string imagePath, Stream image);
     }
 }

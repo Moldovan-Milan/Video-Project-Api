@@ -316,7 +316,17 @@ namespace OmegaStreamWebAPI.Controllers
                 return NotFound();
             }
 
-            if (!await _userService.SaveTheme(background, textColor, bannerImage.OpenReadStream(), user)){
+            bool result;
+            if (bannerImage == null)
+            {
+                result = await _userService.SaveTheme(background, textColor, null, user);
+            }
+            else
+            {
+                result = await _userService.SaveTheme(background, textColor, bannerImage.OpenReadStream(), user);
+            }
+
+            if (!result) {
                 return BadRequest("An error happened!");
             }
             return Ok();
