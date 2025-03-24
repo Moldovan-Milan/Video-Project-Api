@@ -5,9 +5,10 @@ using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.UserServices;
-using System.Linq;
+using OmegaStreamServices.Services.VideoServices;
 using System.Text;
 
 public class UserService : IUserService
@@ -21,13 +22,31 @@ public class UserService : IUserService
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
+    private readonly IVideoManagementService _videoManagementService;
+    private readonly ICommentRepositroy _commentRepository;
+    private readonly ISubscriptionRepository _subscriptionRepository;
+    private readonly IVideoLikesRepository _videoLikesRepository;
+    private readonly IVideoViewRepository _videoViewRepository;
+    private readonly IUserChatsRepository _userChatsRepository;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly ICloudService _cloudService;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
 
     public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository)
+        IAvatarService avatarService, IRefreshTokenService refreshTokenService,
+        IMapper mapper,
+        AppDbContext context,
+        IImageRepository imageRepository,
+        IVideoManagementService videoManagementService,
+        ICommentRepositroy commentRepository, ISubscriptionRepository subscriptionRepository,
+        IVideoLikesRepository videoLikesRepository,
+        IVideoViewRepository videoViewRepository,
+        IUserChatsRepository userChatsRepository,
+        IRefreshTokenRepository refreshTokenRepository,
+        ICloudService cloudService)
     {
         _userManager = userManager;
         _passwordHasher = passwordHasher;
@@ -42,7 +61,14 @@ public class UserService : IUserService
         _context = context;
 
         _imageRepository = imageRepository;
-
+        _videoManagementService = videoManagementService;
+        _commentRepository = commentRepository;
+        _subscriptionRepository = subscriptionRepository;
+        _videoLikesRepository = videoLikesRepository;
+        _videoViewRepository = videoViewRepository;
+        _userChatsRepository = userChatsRepository;
+        _refreshTokenRepository = refreshTokenRepository;
+        _cloudService = cloudService;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
@@ -168,5 +194,47 @@ public class UserService : IUserService
         _context.SaveChangesAsync();
         return result.Succeeded;
     }
+
+    public async Task DeleteAccount(string userId)
+    {
+
+        using (var transaction = await _context.Database.BeginTransactionAsync())
+        {
+            var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
+            if (user == null) return;
+
+            var videos = _context.Videos.Where(x => x.UserId == userId);
+            foreach (var video in videos)
+            {
+                await _videoManagementService.DeleteVideoWithAllRelations(video.Id);
+            }
+
+            _context.Comments.RemoveRange(_context.Comments.Where(x => x.UserId == userId));
+            _context.Subscriptions.RemoveRange(_context.Subscriptions.Where(x => x.FollowerId == userId || x.FollowedUserId == userId));
+            _context.VideoLikes.RemoveRange(_context.VideoLikes.Where(x => x.UserId == userId));
+            _context.VideoViews.RemoveRange(_context.VideoViews.Where(x => x.UserId == userId));
+
+            var chatIds = _context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId)
+                .Select(x => x.Id).ToList();
+            _context.ChatMessages.RemoveRange(_context.ChatMessages.Where(x => chatIds.Contains(x.UserChatId)));
+            _context.UserChats.RemoveRange(_context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId));
+
+            _context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
+
+            if (user.Avatar != null && user.Avatar.Path != "default_avatar")
+            {
+                var avatar = await _imageRepository.FindByIdAsync(user.AvatarId);
+                await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
+                _imageRepository.Delete(avatar);
+            }
+
+            // TODO: Delete Banner
+
+            await _userManager.DeleteAsync(user);
+            await transaction.CommitAsync();
+        }
+
+    }
+
 
 }

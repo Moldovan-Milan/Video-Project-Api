@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using OmegaStreamServices.Services.UserServices;
-using OmegaStreamServices.Models;
-using OmegaStreamServices.Services.Repositories;
-using OmegaStreamServices.Services;
-using System.Security.Claims;
 using OmegaStreamServices.Dto;
-using AutoMapper;
+using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
+using OmegaStreamServices.Services.Repositories;
+using OmegaStreamServices.Services.UserServices;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -277,6 +277,44 @@ namespace OmegaStreamWebAPI.Controllers
             await _userService.UpdateUsername(user, newName);
 
             return Ok(_mapper.Map<UserDto>(user));
+
+        }
+
+        [Authorize]
+        [Route("profile/delete-account")]
+        [HttpDelete]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                User user = await _userService.GetUserById(userIdFromToken);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+                await _userService.DeleteAccount(userIdFromToken);
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                };
+
+                Response.Cookies.Append("AccessToken", "", cookieOptions);
+                Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "delete-account");
+            }
 
         }
 
