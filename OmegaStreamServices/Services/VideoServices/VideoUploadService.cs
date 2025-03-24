@@ -5,7 +5,6 @@ using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
-using WMPLib;
 using MediaInfo;
 using System.Linq.Expressions;
 
