@@ -14,6 +14,7 @@ namespace OmegaStreamServices.Services.UserServices
         Task<User?> GetUserWithFollowersById(string id);
         Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);
         Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
-        public Task<bool> UpdateUsername(User user,string newName);
+        Task<bool> UpdateUsername(User user, string newName);
+        Task DeleteAccount(string userId);
     }
 }
