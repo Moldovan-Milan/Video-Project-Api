@@ -104,7 +104,7 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
 
-        // Majd lehet egyszerûbben is szerintem
+        // This could be simplified
         [HttpGet]
         [Route("shorts")]
         public async Task<IActionResult> GetShortsData([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
