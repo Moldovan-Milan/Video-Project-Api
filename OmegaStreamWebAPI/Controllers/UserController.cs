@@ -16,16 +16,16 @@ namespace OmegaStreamWebAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private IAvatarService _avatarService;
+        private readonly IImageService _imageService;
         private readonly IMapper _mapper;
-       
+
 
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
-            IMapper mapper, IAvatarService avatarService)
+            IMapper mapper, IImageService imageService)
         {
             _userService = userManagerService;
             _mapper = mapper;
-            _avatarService = avatarService;
+            _imageService = imageService;
         }
 
         [Route("register")]
@@ -190,7 +190,7 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-                (Stream file, string extension) = await _avatarService.GetAvatarAsync(id);
+                (Stream file, string extension) = await _imageService.GetImageStreamByIdAsync("images/avatars", id);
                 return File(file, extension);
 
             }

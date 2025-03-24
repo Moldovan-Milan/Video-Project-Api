@@ -133,7 +133,6 @@ namespace OmegaStreamWebAPI
             //builder.Services.AddScoped<IFileManagerService, FileManagerService>();
             builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
-            builder.Services.AddScoped<IAvatarService, AvatarService>();
             builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
@@ -141,6 +140,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<ICommentService, CommentService>();
             builder.Services.AddScoped<IVideoViewService, VideoViewService>();
             builder.Services.AddScoped<IVideoManagementService, VideoManagementService>();
+            builder.Services.AddScoped<IImageService, ImageService>();
 
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 

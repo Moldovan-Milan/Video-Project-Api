@@ -12,7 +12,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoStreamService : IVideoStreamService
     {
-        private readonly string imagesFolder;
+        private readonly string thumbmailFolder;
         private readonly string videosFolder;
 
         private readonly ICloudService _cloudServices;
@@ -27,7 +27,7 @@ namespace OmegaStreamServices.Services.VideoServices
 
             videosFolder = _configuration["CloudService:VideoPath"] 
                 ?? throw new InvalidOperationException("CloudService:VideoPath configuration is missing.");
-            imagesFolder = _configuration["CloudService:ThumbnailPath"]
+            thumbmailFolder = _configuration["CloudService:ThumbnailPath"]
                 ?? throw new InvalidOperationException("CloudService:ThumbnailPath configuration is missing.");
         }
 
@@ -40,7 +40,7 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             Image image = await _imageRepository.FindByIdAsync(imageId);
             string fileName = $"{image.Path}.{image.Extension}";
-            return await GetFileStreamAsync(imagesFolder, fileName);
+            return await GetFileStreamAsync(thumbmailFolder, fileName);
         }
 
         public async Task<(Stream videoStream, string contentType)> GetVideoStreamAsync(string videoKey)

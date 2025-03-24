@@ -14,29 +14,26 @@ using System.Text;
 public class UserService : IUserService
 {
     private readonly UserManager<User> _userManager;
-    private readonly IPasswordHasher<User> _passwordHasher;
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
-    private readonly IAvatarService _avatarService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
     private readonly IUserThemeRepository _userThemeRepository;
     private readonly ICloudService _cloudService;
+    private readonly IImageService _imageService;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
 
-    public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
+    public UserService(UserManager<User> userManager,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService, IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService)
+        IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService)
     {
         _userManager = userManager;
-        _passwordHasher = passwordHasher;
         _signInManager = signInManager;
         _configuration = configuration;
-        _avatarService = avatarService;
         _refreshTokenService = refreshTokenService;
         _mapper = mapper;
 
@@ -47,6 +44,7 @@ public class UserService : IUserService
         _imageRepository = imageRepository;
         _userThemeRepository = userThemeRepository;
         _cloudService = cloudService;
+        _imageService = imageService;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
@@ -56,7 +54,8 @@ public class UserService : IUserService
         //    return IdentityResult.Failed(new IdentityError { Description = "Email already exists." });
         //}
 
-        string avatarFileName = await _avatarService.SaveAvatarAsync(avatar);
+        string avatarFileName = await _imageService.SaveImage("images/avatars", avatar);
+
         var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
         var user = new User
         {
@@ -91,7 +90,8 @@ public class UserService : IUserService
 
     public async Task<(Stream file, string contentType)> GetUserAvatarImage(int id)
     {
-        return await _avatarService.GetAvatarAsync(id);
+        return await _imageService.GetImageStreamByIdAsync("images/avatars", id);
+        //return await _avatarService.GetAvatarAsync(id);
     }
 
     public async Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken)
@@ -175,7 +175,7 @@ public class UserService : IUserService
     {
         var result = await _userManager.SetUserNameAsync(user, newName);
         await _userManager.UpdateNormalizedUserNameAsync(user);
-        _context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
         return result.Succeeded;
     }
 
@@ -190,6 +190,10 @@ public class UserService : IUserService
             };
 
             string fileName = await SaveBanner(bannerImage);
+
+            if (fileName == string.Empty)
+                return false;
+
             var image = await _imageRepository.FindImageByPath(fileName);
             userTheme.BannerId = image.Id;
             await _userThemeRepository.Add(userTheme);
@@ -206,25 +210,29 @@ public class UserService : IUserService
         
     }
 
-    private async Task<string> SaveBanner(Stream avatarStream)
+    private async Task<string> SaveBanner(Stream bannerStream)
     {
-        string fileName = Guid.NewGuid().ToString();
-        string imagePath = $"images/banner/{fileName}.png";
+        return await _imageService.SaveImage("images/banner", bannerStream);
 
-        await _cloudService.UploadToR2(imagePath, avatarStream);
-        await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
+        //string fileName = Guid.NewGuid().ToString();
+        //string imagePath = $"images/banner/{fileName}.png";
 
-        return fileName;
+        //await _cloudService.UploadToR2(imagePath, avatarStream);
+        //await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
+
+        //return fileName;
     }
 
     public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
     {
-        var image = await _imageRepository.FindByIdAsync(bannerId);
-        if (image == null)
-        {
-            throw new Exception("Banner not found.");
-        }
-        return await _cloudService.GetFileStreamAsync($"images/banner/{image.Path}.{image.Extension}");
+        return await _imageService.GetImageStreamByIdAsync("images/banner", bannerId);
+
+        //var image = await _imageRepository.FindByIdAsync(bannerId);
+        //if (image == null)
+        //{
+        //    throw new Exception("Banner not found.");
+        //}
+        //return await _cloudService.GetFileStreamAsync($"images/banner/{image.Path}.{image.Extension}");
     }
 
     /*
