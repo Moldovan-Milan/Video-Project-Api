@@ -18,7 +18,7 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IUserService _userService;
         private IAvatarService _avatarService;
         private readonly IMapper _mapper;
-       
+
 
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
             IMapper mapper, IAvatarService avatarService)
@@ -143,13 +143,12 @@ namespace OmegaStreamWebAPI.Controllers
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-
             if (userIdFromToken == null)
             {
                 return Forbid("You are not logged in!");
             }
 
-            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken,pageNumber,pageSize);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
 
             return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
@@ -161,10 +160,10 @@ namespace OmegaStreamWebAPI.Controllers
             UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
             bool hasMore = user.Videos.Count == pageSize;
 
-            return user == null ? NotFound() : Ok(new 
-            { 
+            return user == null ? NotFound() : Ok(new
+            {
                 user = user,
-                hasMore = hasMore 
+                hasMore = hasMore
             });
         }
 
@@ -178,7 +177,8 @@ namespace OmegaStreamWebAPI.Controllers
                 return File(file, extension);
 
             }
-            catch (Exception ex){
+            catch (Exception ex)
+            {
                 return BadRequest(ex.Message);
             }
         }
@@ -274,7 +274,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return NotFound();
             }
 
-            await _userService.UpdateUsername(user,newName);
+            await _userService.UpdateUsername(user, newName);
 
             return Ok(_mapper.Map<UserDto>(user));
 
@@ -284,8 +284,6 @@ namespace OmegaStreamWebAPI.Controllers
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }
-
-        
     }
 }
 

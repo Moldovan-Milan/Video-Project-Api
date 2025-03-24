@@ -25,7 +25,7 @@ namespace OmegaStreamServices.Services.VideoServices
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize)
+        public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize, bool isShorts)
         {
             pageNumber = pageNumber ?? 1;
             pageSize = pageSize ?? 30;
@@ -37,7 +37,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 pageSize = 30;
             }
-            var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value);
+            var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value, isShorts);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
 
@@ -58,7 +58,7 @@ namespace OmegaStreamServices.Services.VideoServices
             }
         }
 
-        public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize)
+        public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize, bool isShorts)
         {
             pageNumber = pageNumber ?? 1;
             pageSize = pageSize ?? 30;
@@ -70,7 +70,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 pageSize = 30;
             }
-            var videos = await _videoRepository.GetVideosByName(name, pageNumber.Value, pageSize.Value);
+            var videos = await _videoRepository.GetVideosByName(name, pageNumber.Value, pageSize.Value, isShorts);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
     }

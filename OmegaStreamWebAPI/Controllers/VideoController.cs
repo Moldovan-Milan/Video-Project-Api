@@ -88,7 +88,7 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize);
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize, false);
             if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
@@ -99,6 +99,28 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(new
             {
                 videos = videos,
+                hasMore = hasMore
+            });
+        }
+
+
+        // Majd lehet egyszerûbben is szerintem
+        [HttpGet]
+        [Route("shorts")]
+        public async Task<IActionResult> GetShortsData([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            _logger.LogInformation("Fetching all shorts metadata.");
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize, true);
+            if (videos == null || videos.Count == 0)
+            {
+                _logger.LogWarning("No shorts found.");
+                return NotFound();
+            }
+            bool hasMore = videos.Count == pageSize;
+            _logger.LogInformation("Successfully fetched video metadata.");
+            return Ok(new
+            {
+                shorts = videos,
                 hasMore = hasMore
             });
         }
@@ -241,7 +263,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Search is null");
             try
             {
-                var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize);
+                var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize, false);
                 bool hasMore = videos.Count == pageSize;
                 return Ok(new
                 {

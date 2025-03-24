@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -42,15 +42,11 @@ public class UserService : IUserService
         _context = context;
 
         _imageRepository = imageRepository;
+
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
-        //if (await _userManager.FindByEmailAsync(email) != null)
-        //{
-        //    return IdentityResult.Failed(new IdentityError { Description = "Email already exists." });
-        //}
-
         string avatarFileName = await _avatarService.SaveAvatarAsync(avatar);
         var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
         var user = new User
@@ -60,7 +56,7 @@ public class UserService : IUserService
             AvatarId = avatarImage != null ? avatarImage.Id : 0,
             Created = DateTime.UtcNow,
         };
-        //user.PasswordHash = _passwordHasher.HashPassword(user, password);
+
         return await _userManager.CreateAsync(user, password);
     }
 
@@ -165,7 +161,7 @@ public class UserService : IUserService
         return _mapper.Map<List<UserDto?>>(users);
     }
 
-    public async Task<bool> UpdateUsername(User user,string newName)
+    public async Task<bool> UpdateUsername(User user, string newName)
     {
         var result = await _userManager.SetUserNameAsync(user, newName);
         await _userManager.UpdateNormalizedUserNameAsync(user);
