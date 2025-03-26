@@ -86,7 +86,15 @@ public class UserService : IUserService
             Created = DateTime.UtcNow,
         };
 
-        return await _userManager.CreateAsync(user, password);
+        var result = await _userManager.CreateAsync(user, password);
+
+        if (result.Succeeded)
+        {
+            await _userManager.AddToRoleAsync(user, "User");
+        }
+
+        return result;
+
     }
 
     public async Task<(string, string, User)> LoginUser(string email, string password, bool rememberMe)
