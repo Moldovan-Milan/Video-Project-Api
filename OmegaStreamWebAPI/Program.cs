@@ -145,6 +145,8 @@ namespace OmegaStreamWebAPI
 
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
+            builder.Services.AddScoped<TokenGenerator>();
+
             // SingalR
             builder.Services.AddSignalR();
 

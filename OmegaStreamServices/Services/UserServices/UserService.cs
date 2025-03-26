@@ -30,6 +30,7 @@ public class UserService : IUserService
     private readonly IUserChatsRepository _userChatsRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ICloudService _cloudService;
+    private readonly TokenGenerator _tokenGenerator;
 
     private readonly byte[] JWT_KEY;
     private readonly string ISSUER;
@@ -46,7 +47,8 @@ public class UserService : IUserService
         IVideoViewRepository videoViewRepository,
         IUserChatsRepository userChatsRepository,
         IRefreshTokenRepository refreshTokenRepository,
-        ICloudService cloudService)
+        ICloudService cloudService,
+        TokenGenerator tokenGenerator)
     {
         _userManager = userManager;
         _passwordHasher = passwordHasher;
@@ -69,6 +71,7 @@ public class UserService : IUserService
         _userChatsRepository = userChatsRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _cloudService = cloudService;
+        _tokenGenerator = tokenGenerator;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
@@ -95,7 +98,7 @@ public class UserService : IUserService
         var result = await _signInManager.PasswordSignInAsync(user.UserName, password, rememberMe, true);
         if (!result.Succeeded) return (null, null, null)!;
 
-        string accessToken = TokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
+        string accessToken = await _tokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
         string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
         return (accessToken, refreshToken, user);
     }
@@ -116,7 +119,7 @@ public class UserService : IUserService
         var (isValid, token) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
         if (!isValid) return (null, null);
 
-        return (TokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
+        return (await _tokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
     }
 
     public async Task<User?> GetUserById(string id)
