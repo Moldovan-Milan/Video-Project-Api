@@ -11,7 +11,7 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpGet("admin-test")]
         public IActionResult AdminTest()
         {
-            return Ok("If you see this, you are and admin user!");
+            return Ok("If you see this, you are an admin user!");
         }
     }
 }
