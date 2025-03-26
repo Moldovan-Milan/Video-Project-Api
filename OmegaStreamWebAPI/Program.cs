@@ -184,7 +184,7 @@ namespace OmegaStreamWebAPI
             }
 
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
-            var user = userManager.FindByEmailAsync("admin@admin.com").Result;
+            var user = userManager.FindByEmailAsync("admin@omegastream.com").Result;
             if (user != null)
             {
                 userManager.AddToRoleAsync(user, "Admin").Wait();
