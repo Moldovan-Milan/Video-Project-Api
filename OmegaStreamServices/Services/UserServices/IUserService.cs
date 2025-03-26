@@ -16,5 +16,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
         Task<bool> UpdateUsername(User user, string newName);
         Task DeleteAccount(string userId);
+        Task<List<string>> GetRoles(string userId);
     }
 }

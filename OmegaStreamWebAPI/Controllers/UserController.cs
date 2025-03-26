@@ -318,6 +318,27 @@ namespace OmegaStreamWebAPI.Controllers
 
         }
 
+        [Route("get-roles")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetRoles()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                return Ok(roles);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "get-roles");
+            }
+        }
+
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
