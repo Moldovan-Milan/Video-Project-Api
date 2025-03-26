@@ -181,6 +181,14 @@ namespace OmegaStreamWebAPI
                 }
             }
 
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+            var user = userManager.FindByEmailAsync("admin@admin.com").Result;
+            if (user != null)
+            {
+                userManager.AddToRoleAsync(user, "Admin").Wait();
+            }
+
+
             // For private chat
             app.UseWebSockets();
 
