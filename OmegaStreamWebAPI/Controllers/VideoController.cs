@@ -434,10 +434,11 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound("Video not found.");
                 }
-                if ((userIdFromToken == null || video.UserId != userIdFromToken) || !roles.Contains("Admin"))
+                if (userIdFromToken == null || (video.UserId != userIdFromToken && !roles.Contains("Admin")))
                 {
                     return Unauthorized("You are not authorized to delete this video.");
                 }
+
                 await _videoManagementService.DeleteVideoWithAllRelations(videoId);
                 return NoContent();
             }
@@ -467,8 +468,10 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound("Video not found.");
                 }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
 
-                if (video.UserId != userIdFromToken)
+                if (video.UserId != userIdFromToken && !roles.Contains("Admin"))
                 {
                     return Forbid();
                 }
