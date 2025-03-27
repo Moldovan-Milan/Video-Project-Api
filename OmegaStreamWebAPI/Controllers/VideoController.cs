@@ -89,6 +89,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "segment");
             }
         }
+        #endregion
+
+        #region Metadata
 
         [HttpGet]
         public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
@@ -282,6 +285,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "search");
             }
         }
+        #endregion
+
+        #region Comments
 
         [Authorize]
         [HttpPost("write-new-comment")]
@@ -306,6 +312,8 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "new-comment");
             }
         }
+
+        
 
         [Authorize]
         [HttpPatch("edit-comment/{commentId}")]
@@ -340,7 +348,41 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        #endregion Video Stream
+        [Authorize]
+        [HttpDelete("delete-comment/{commentId}")]
+        public async Task<IActionResult> DeleteComment([FromRoute] int commentId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+
+                var comment = await _commentRepository.FindByIdAsync(commentId);
+                if (comment == null)
+                {
+                    return NotFound($"Comment with id: {commentId} Not Found");
+                }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
+                if (comment.UserId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized to edit this comment.");
+                }
+                _commentRepository.Delete(comment);
+
+                return NoContent();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+
+        #endregion
 
         #region Video Upload
 
