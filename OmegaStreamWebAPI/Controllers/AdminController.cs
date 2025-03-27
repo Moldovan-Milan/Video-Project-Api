@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 
 namespace OmegaStreamWebAPI.Controllers
@@ -27,8 +28,23 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok("If you see this, you are an admin user!");
         }
 
+        [HttpPatch("edit-user/{userId}")]
+        public async Task<IActionResult> EditUser([FromRoute] string userId, [FromQuery] string username)
+        {
+            //TODO: Avatar and banner
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound();
+            }
+            user.UserName = username;
+
+            await _userManager.UpdateAsync(user);
+            return NoContent();
+        }
+
         [HttpDelete("delete-user/{userId}")]
-        public async Task<IActionResult> Delete([FromRoute] string userId) 
+        public async Task<IActionResult> DeleteUser([FromRoute] string userId) 
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
@@ -40,5 +56,9 @@ namespace OmegaStreamWebAPI.Controllers
             await _userService.DeleteAccount(userId);
             return NoContent();
         }
+
+
+
+        //TODO: stop livestream
     }
 }
