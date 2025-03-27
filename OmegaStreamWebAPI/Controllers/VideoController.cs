@@ -1,6 +1,7 @@
 using Amazon.Runtime.Internal;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
@@ -27,8 +28,9 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoManagementService _videoManagementService;
         private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
+        private readonly UserManager<User> _userManager;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -40,6 +42,7 @@ namespace OmegaStreamWebAPI.Controllers
             _videoViewService = videoViewService;
             _encryptionHelper = encryptionHelper;
             _videoManagementService = videoManagementService;
+            _userManager = userManager;
         }
 
         #region Video Stream
@@ -424,12 +427,14 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
                 var video = await _videoMetadataService.GetVideoMetaData(videoId);
                 if (video == null)
                 {
                     return NotFound("Video not found.");
                 }
-                if (userIdFromToken == null || video.UserId != userIdFromToken)
+                if ((userIdFromToken == null || video.UserId != userIdFromToken) || !roles.Contains("Admin"))
                 {
                     return Unauthorized("You are not authorized to delete this video.");
                 }
