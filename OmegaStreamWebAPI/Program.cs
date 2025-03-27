@@ -187,6 +187,8 @@ namespace OmegaStreamWebAPI
             var user = userManager.FindByEmailAsync("admin@omegastream.com").Result;
             if (user != null)
             {
+                userManager.AddToRoleAsync(user, "User").Wait();
+                userManager.AddToRoleAsync(user, "Verified").Wait();
                 userManager.AddToRoleAsync(user, "Admin").Wait();
             }
 
