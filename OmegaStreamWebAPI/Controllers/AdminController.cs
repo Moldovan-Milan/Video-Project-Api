@@ -12,11 +12,13 @@ namespace OmegaStreamWebAPI.Controllers
     {
         private UserManager<User> _userManager;
         private UserService _userService;
+        private SignInManager<User> _signInManager;
 
-        public AdminController(UserManager<User> userManager, UserService userService)
+        public AdminController(UserManager<User> userManager, UserService userService, SignInManager<User> signInManager)
         {
             _userManager = userManager;
             _userService = userService;
+            _signInManager = signInManager;
         }
 
         [HttpGet("admin-test")]
@@ -33,6 +35,8 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return NotFound();
             }
+            //TODO: Logout deleted user
+            
             await _userService.DeleteAccount(userId);
             return NoContent();
         }
