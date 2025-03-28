@@ -338,6 +338,7 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Unauthorized("You are not authorized to edit this comment.");
                 }
+                comment.Content = content;
                 _commentRepository.Update(comment);
                 
                 return NoContent();
