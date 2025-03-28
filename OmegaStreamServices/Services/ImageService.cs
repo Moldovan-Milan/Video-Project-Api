@@ -45,6 +45,7 @@ namespace OmegaStreamServices.Services
         public async Task<string?> SaveImage(string cloudPath, Stream imageStream)
         {
             string fileName = Guid.NewGuid().ToString();
+            await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
             return await SaveImage(cloudPath, fileName, imageStream);
         }
 
@@ -53,7 +54,6 @@ namespace OmegaStreamServices.Services
             try
             {
                 await _cloudService.UploadToR2($"{cloudPath}/{fileName}.png", imageStream);
-                await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
                 return fileName;
             }
             catch (Exception ex)
