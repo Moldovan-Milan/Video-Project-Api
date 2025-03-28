@@ -1,7 +1,9 @@
 using Amazon.Runtime.Internal;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
@@ -27,8 +29,10 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoManagementService _videoManagementService;
         private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
+        private readonly UserManager<User> _userManager;
+        private readonly ICommentRepositroy _commentRepository;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -40,6 +44,8 @@ namespace OmegaStreamWebAPI.Controllers
             _videoViewService = videoViewService;
             _encryptionHelper = encryptionHelper;
             _videoManagementService = videoManagementService;
+            _userManager = userManager;
+            _commentRepository = commentRepository;
         }
 
         #region Video Stream
@@ -83,6 +89,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "segment");
             }
         }
+        #endregion
+
+        #region Metadata
 
         [HttpGet]
         public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
@@ -276,6 +285,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "search");
             }
         }
+        #endregion
+
+        #region Comments
 
         [Authorize]
         [HttpPost("write-new-comment")]
@@ -301,7 +313,77 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        #endregion Video Stream
+        
+
+        [Authorize]
+        [HttpPatch("edit-comment/{commentId}")]
+        public async Task<IActionResult> EditComment([FromRoute] int commentId, [FromBody] string content)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+
+                var comment = await _commentRepository.FindByIdAsync(commentId);
+                if(comment == null)
+                {
+                    return NotFound($"Comment with id: {commentId} Not Found");
+                }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
+                if (comment.UserId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized to edit this comment.");
+                }
+                comment.Content = content;
+                _commentRepository.Update(comment);
+                
+                return NoContent();
+            }
+            catch(Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("delete-comment/{commentId}")]
+        public async Task<IActionResult> DeleteComment([FromRoute] int commentId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+
+                var comment = await _commentRepository.FindByIdAsync(commentId);
+                if (comment == null)
+                {
+                    return NotFound($"Comment with id: {commentId} Not Found");
+                }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
+                if (comment.UserId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized to edit this comment.");
+                }
+                _commentRepository.Delete(comment);
+
+                return NoContent();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+
+        #endregion
 
         #region Video Upload
 
@@ -424,15 +506,18 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
                 var video = await _videoMetadataService.GetVideoMetaData(videoId);
                 if (video == null)
                 {
                     return NotFound("Video not found.");
                 }
-                if (userIdFromToken == null || video.UserId != userIdFromToken)
+                if (userIdFromToken == null || (video.UserId != userIdFromToken && !roles.Contains("Admin")))
                 {
                     return Unauthorized("You are not authorized to delete this video.");
                 }
+                    
                 await _videoManagementService.DeleteVideoWithAllRelations(videoId);
                 return NoContent();
             }
@@ -462,8 +547,10 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound("Video not found.");
                 }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
 
-                if (video.UserId != userIdFromToken)
+                if (video.UserId != userIdFromToken && !roles.Contains("Admin"))
                 {
                     return Forbid();
                 }

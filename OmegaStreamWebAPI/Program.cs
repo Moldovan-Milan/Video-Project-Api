@@ -81,6 +81,7 @@ namespace OmegaStreamWebAPI
             );
 
             builder.Services.AddIdentity<User, IdentityRole>()
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
@@ -144,6 +145,8 @@ namespace OmegaStreamWebAPI
 
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
+            builder.Services.AddScoped<TokenGenerator>();
+
             // SingalR
             builder.Services.AddSignalR();
 
@@ -167,6 +170,28 @@ namespace OmegaStreamWebAPI
             });
 
             var app = builder.Build();
+
+            var scope = app.Services.CreateScope();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            string[] roles = { "Admin", "Verified", "User" };
+            foreach (var role in roles)
+            {
+                if (!roleManager.RoleExistsAsync(role).Result)
+                {
+                    roleManager.CreateAsync(new IdentityRole(role)).Wait();
+                }
+            }
+
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+            var user = userManager.FindByEmailAsync("admin@omegastream.com").Result;
+            if (user != null)
+            {
+                userManager.AddToRoleAsync(user, "User").Wait();
+                userManager.AddToRoleAsync(user, "Verified").Wait();
+                userManager.AddToRoleAsync(user, "Admin").Wait();
+            }
+
 
             // For private chat
             app.UseWebSockets();

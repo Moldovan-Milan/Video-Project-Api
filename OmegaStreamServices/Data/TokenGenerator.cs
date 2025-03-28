@@ -1,4 +1,5 @@
-﻿using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
 using OmegaStreamServices.Models;
 using System;
 using System.Collections.Generic;
@@ -11,15 +12,28 @@ using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Data
 {
-    internal class TokenGenerator
+    public class TokenGenerator
     {
-        public static string GenerateJwtToken(User user, byte[] JwtKey, string issuer)
+        private readonly UserManager<User> _userManager;
+
+        public TokenGenerator(UserManager<User> userManager)
         {
-            var claims = new[]
+            _userManager = userManager;
+        }
+        public async Task<string> GenerateJwtToken(User user, byte[] JwtKey, string issuer)
+        {
+            var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             };
+            var roles = await _userManager.GetRolesAsync(user);
+
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
+
             var key = new SymmetricSecurityKey(JwtKey);
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
