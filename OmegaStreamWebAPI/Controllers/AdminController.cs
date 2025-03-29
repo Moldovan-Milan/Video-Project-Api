@@ -52,6 +52,11 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return NotFound();
             }
+            //TODO: fix user video deletion
+            if (user.Videos.Count != 0)
+            {
+                return BadRequest("You need to delete all of the user's videos, before deleting the user");
+            }
             //TODO: Logout deleted user
             
             await _userService.DeleteAccount(userId);
