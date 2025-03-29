@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services.UserServices;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -12,10 +13,10 @@ namespace OmegaStreamWebAPI.Controllers
     public class AdminController : ControllerBase
     {
         private UserManager<User> _userManager;
-        private UserService _userService;
+        private IUserService _userService;
         private SignInManager<User> _signInManager;
 
-        public AdminController(UserManager<User> userManager, UserService userService, SignInManager<User> signInManager)
+        public AdminController(UserManager<User> userManager, IUserService userService, SignInManager<User> signInManager)
         {
             _userManager = userManager;
             _userService = userService;
