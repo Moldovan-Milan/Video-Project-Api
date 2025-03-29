@@ -162,7 +162,7 @@ namespace OmegaStreamWebAPI.Controllers
 
             return user == null ? NotFound() : Ok(new
             {
-                user = user,
+                user = _mapper.Map<UserWithVideosDto>(user),
                 hasMore = hasMore
             });
         }
