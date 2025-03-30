@@ -24,5 +24,12 @@ namespace OmegaStreamServices.Services.Repositories
             _context.ChatMessages.RemoveRange(messages);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<(bool, UserChats? userChat)> HasUserChat(string user1Id, string user2Id)
+        {
+            UserChats? userChat = await _dbSet.Where(x => x.User1Id == user1Id && x.User2Id == user2Id
+            || x.User2Id == user1Id && x.User1Id == user2Id).FirstOrDefaultAsync();
+            return (userChat != null, userChat);
+        }
     }
 }

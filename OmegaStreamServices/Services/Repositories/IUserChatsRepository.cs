@@ -7,5 +7,6 @@ namespace OmegaStreamServices.Services.Repositories
     {
         Task<List<UserChats>> GetAllChatByUserIdAsync(string userId);
         Task DeleteAllMessages(int chatId);
+        Task<(bool, UserChats? userChat)> HasUserChat(string user1Id, string user2Id);
     }
 }
