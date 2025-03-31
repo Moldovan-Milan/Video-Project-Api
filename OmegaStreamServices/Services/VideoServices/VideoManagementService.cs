@@ -48,15 +48,35 @@ namespace OmegaStreamServices.Services.VideoServices
             var deleteReactionsTask = _videoLikesRepository.DeleteMultipleAsync(reactionsTask.Result);
             var deleteViewsTask = _videoViewRepository.DeleteMultipleAsync(viewsTask.Result);
 
-            var deleteFilesTask = _cloudService.DeleteFilesAsync($"videos/{video.Path}");
-            var deleteThumbnailTask = _cloudService.DeleteFileAsync($"images/thumbnails/{video.Thumbnail.Path}.{video.Thumbnail.Extension}");
+            try
+            {
+                await _cloudService.DeleteFilesAsync($"videos/{video.Path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to delete video file {video.Path}. Error: {ex.Message}");
+            }
 
-            await Task.WhenAll(deleteFilesTask, deleteThumbnailTask, deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
+            try
+            {
+                await _cloudService.DeleteFileAsync($"images/thumbnails/{video.Thumbnail.Path}.{video.Thumbnail.Extension}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to delete video thumbnail {video.Thumbnail.Path}. Error: {ex.Message}");
+            }
+
+            await Task.WhenAll(deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
 
             await _videoRepository.DeleteVideoWithRelationsAsync(video);
+
             var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
-            _imageRepository.Delete(image);
+            if (image != null)
+            {
+                _imageRepository.Delete(image);
+            }
         }
+
 
         public async Task EditVideo(int id, string? title, string? description, IFormFile? image)
         {
