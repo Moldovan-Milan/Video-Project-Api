@@ -339,10 +339,10 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        [Route("apply-verification")]
+        [Route("request-verification")]
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> ApplyVerification()
+        public async Task<IActionResult> RequestVerification()
         {
             try
             {
@@ -369,7 +369,7 @@ namespace OmegaStreamWebAPI.Controllers
             }
             catch(Exception ex)
             {
-                return HandleException(ex, "apply-verification");
+                return HandleException(ex, "request-verification");
             }
         }
 

@@ -285,6 +285,8 @@ public class UserService : IUserService
             throw new Exception("User not found");
         }
         await _userManager.AddToRoleAsync(user, "Verified");
+        user.IsVerificationRequested = false;
+        await _context.SaveChangesAsync();
     }
 
     public async Task AddVerificationRequest(string userId)
@@ -296,5 +298,25 @@ public class UserService : IUserService
         }
         user.IsVerificationRequested = true;
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        var users = await _context.Users
+            .Where(u => u.IsVerificationRequested)
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToListAsync();
+        return _mapper.Map<List<UserDto>>(users);
     }
 }

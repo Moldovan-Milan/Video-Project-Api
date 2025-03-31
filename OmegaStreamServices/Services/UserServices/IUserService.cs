@@ -19,5 +19,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task<List<string>> GetRoles(string userId);
         Task VerifyUser(string userId);
         Task AddVerificationRequest(string userId);
+        Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize);
     }
 }

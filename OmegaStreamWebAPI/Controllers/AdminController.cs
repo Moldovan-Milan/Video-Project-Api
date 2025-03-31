@@ -52,14 +52,36 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return NotFound();
             }
-            var videos_count = (await _userService.GetUserProfileWithVideos(userId,1,1)).Videos.Count;
             //TODO: Logout deleted user
             
             await _userService.DeleteAccount(userId);
             return NoContent();
         }
 
+        [HttpGet("verification-requests")]
+        public async Task<IActionResult> GetVerificationRequests([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            var users = await _userService.GetVerificationRequests(pageNumber, pageSize);
 
+            bool hasMore = users.Count == pageSize;
+            return Ok(new
+            {
+                users = users,
+                hasMore = hasMore
+            });
+        }
+
+        [HttpPost("verify-user/{userId}")]
+        public async Task<IActionResult> VerifyUser([FromRoute] string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("User Not Found!");
+            }
+            await _userService.VerifyUser(userId);
+            return Ok("User verified successfully.");
+        }
 
         //TODO: stop livestream
     }
