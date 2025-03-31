@@ -17,5 +17,7 @@ namespace OmegaStreamServices.Services.UserServices
         Task<bool> UpdateUsername(User user, string newName);
         Task DeleteAccount(string userId);
         Task<List<string>> GetRoles(string userId);
+        Task VerifyUser(string userId);
+        Task AddVerificationRequest(string userId);
     }
 }

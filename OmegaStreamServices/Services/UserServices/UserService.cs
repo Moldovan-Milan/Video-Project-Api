@@ -202,7 +202,7 @@ public class UserService : IUserService
     {
         var result = await _userManager.SetUserNameAsync(user, newName);
         await _userManager.UpdateNormalizedUserNameAsync(user);
-        _context.SaveChangesAsync();
+        await _context.SaveChangesAsync();
         return result.Succeeded;
     }
 
@@ -277,5 +277,24 @@ public class UserService : IUserService
         return roles;
     }
 
+    public async Task VerifyUser(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        await _userManager.AddToRoleAsync(user, "Verified");
+    }
 
+    public async Task AddVerificationRequest(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        user.IsVerificationRequested = true;
+        await _context.SaveChangesAsync();
+    }
 }

@@ -339,6 +339,40 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Route("apply-verification")]
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> ApplyVerification()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                var user = await _userService.GetUserById(userIdFromToken);
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("You are already verified!");
+                }
+
+                if(user.IsVerificationRequested)
+                {
+                    return Conflict("Verification request already submitted!");
+                }
+
+                await _userService.AddVerificationRequest(userIdFromToken);
+
+                return Ok("Verification request submitted successfully.");
+            }
+            catch(Exception ex)
+            {
+                return HandleException(ex, "apply-verification");
+            }
+        }
+
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
