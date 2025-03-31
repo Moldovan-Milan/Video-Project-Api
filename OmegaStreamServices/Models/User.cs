@@ -18,6 +18,10 @@ namespace OmegaStreamServices.Models
         [Required] 
         public DateTime Created { get; set; }
 
+        [Column("verification_requested")]
+        [Required]
+        public bool IsVerificationRequested { get; set; } = false;
+
         //[Column("verified")]
         //[Required]
         //public bool Verified { get; set; }

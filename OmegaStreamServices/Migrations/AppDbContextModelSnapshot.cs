@@ -281,6 +281,10 @@ namespace OmegaStreamServices.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsVerificationRequested")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("verification_requested");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER");
 
