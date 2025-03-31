@@ -14,7 +14,6 @@ using System.Text;
 public class UserService : IUserService
 {
     private readonly UserManager<User> _userManager;
-    private readonly IPasswordHasher<User> _passwordHasher;
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
     private readonly IAvatarService _avatarService;
@@ -23,53 +22,33 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
     private readonly IVideoManagementService _videoManagementService;
-    private readonly ICommentRepositroy _commentRepository;
-    private readonly ISubscriptionRepository _subscriptionRepository;
-    private readonly IVideoLikesRepository _videoLikesRepository;
-    private readonly IVideoViewRepository _videoViewRepository;
-    private readonly IUserChatsRepository _userChatsRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
+
     private readonly ICloudService _cloudService;
     private readonly TokenGenerator _tokenGenerator;
 
-    private readonly byte[] JWT_KEY;
-    private readonly string ISSUER;
 
-    public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
+    public UserService(UserManager<User> userManager,
         SignInManager<User> signInManager, IConfiguration configuration,
         IAvatarService avatarService, IRefreshTokenService refreshTokenService,
         IMapper mapper,
         AppDbContext context,
         IImageRepository imageRepository,
         IVideoManagementService videoManagementService,
-        ICommentRepositroy commentRepository, ISubscriptionRepository subscriptionRepository,
-        IVideoLikesRepository videoLikesRepository,
-        IVideoViewRepository videoViewRepository,
-        IUserChatsRepository userChatsRepository,
-        IRefreshTokenRepository refreshTokenRepository,
         ICloudService cloudService,
         TokenGenerator tokenGenerator)
     {
         _userManager = userManager;
-        _passwordHasher = passwordHasher;
         _signInManager = signInManager;
         _configuration = configuration;
         _avatarService = avatarService;
         _refreshTokenService = refreshTokenService;
         _mapper = mapper;
 
-        JWT_KEY = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
-        ISSUER = _configuration["Jwt:Issuer"]!;
         _context = context;
 
         _imageRepository = imageRepository;
         _videoManagementService = videoManagementService;
-        _commentRepository = commentRepository;
-        _subscriptionRepository = subscriptionRepository;
-        _videoLikesRepository = videoLikesRepository;
-        _videoViewRepository = videoViewRepository;
-        _userChatsRepository = userChatsRepository;
-        _refreshTokenRepository = refreshTokenRepository;
+
         _cloudService = cloudService;
         _tokenGenerator = tokenGenerator;
     }
@@ -97,7 +76,7 @@ public class UserService : IUserService
 
     }
 
-    public async Task<(string, string, User)> LoginUser(string email, string password, bool rememberMe)
+    public async Task<(string accesToken, string refreshToken, User)> LoginUser(string email, string password, bool rememberMe)
     {
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
@@ -105,13 +84,13 @@ public class UserService : IUserService
 
         var result = await _signInManager.PasswordSignInAsync(user.UserName, password, rememberMe, true);
         if (!result.Succeeded) return (null, null, null)!;
+        
 
-        string accessToken = await _tokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
-        string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
+        string accessToken = await _tokenGenerator.GenerateJwtToken(user.Id);
+        string refreshToken = rememberMe ? await _refreshTokenService.GenerateRefreshToken(user.Id) : null!;
         return (accessToken, refreshToken, user);
     }
 
-    // Szerintem ez felesleges ide, de még nem törlöm ki
     public async Task LogoutUser()
     {
         await _signInManager.SignOutAsync();
@@ -122,12 +101,13 @@ public class UserService : IUserService
         return await _avatarService.GetAvatarAsync(id);
     }
 
-    public async Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken)
+    public async Task<(string? accessToken, string? newRefreshToken, User? user)> GenerateJwtWithRefreshToken(string refreshToken)
     {
-        var (isValid, token) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
-        if (!isValid) return (null, null);
-
-        return (await _tokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
+        var (accessToken, refreshTokenObj) = await _refreshTokenService.GenerateAccessToken(refreshToken);
+        if (refreshTokenObj == null || accessToken == null)
+            return (null, null, null);
+        User? user = await _userManager.FindByIdAsync(refreshTokenObj.UserId);
+        return (accessToken, refreshTokenObj.Token, user);
     }
 
     public async Task<User?> GetUserById(string id)
@@ -256,6 +236,4 @@ public class UserService : IUserService
         var roles = (await _userManager.GetRolesAsync(user)).ToList();
         return roles;
     }
-
-
 }

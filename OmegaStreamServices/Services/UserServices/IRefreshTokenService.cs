@@ -9,7 +9,7 @@ namespace OmegaStreamServices.Services.UserServices
 {
     public interface IRefreshTokenService
     {
-        Task<string> GetOrGenerateRefreshToken(string userId);
-        Task<(bool IsValid, RefreshToken? Token)> ValidateRefreshTokenAsync(string refreshToken);
+        Task<string> GenerateRefreshToken(string userId);
+        Task<(string? accesToken, RefreshToken? newRefreshToken)> GenerateAccessToken(string token);
     }
 }

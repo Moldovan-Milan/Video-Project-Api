@@ -109,9 +109,45 @@ namespace OmegaStreamWebAPI
                             context.Token = token;
                         }
                         return Task.CompletedTask;
-                    }
+                    },
+                    //OnChallenge = context =>
+                    //{
+                    //    context.HandleResponse();
+                    //    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    //    context.Response.ContentType = "application/json";
+                    //    return context.Response.WriteAsync("{\"error\":\"Unauthorized\"}");
+                    //}
                 };
             });
+
+            // Turn off identity redirect on status 401
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                // Default cookie options
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS
+                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.MaxAge = TimeSpan.FromMinutes(30); // Cookie élettartama
+
+                options.LoginPath = string.Empty; // Ne irányítson bejelentkezési oldalra
+                options.AccessDeniedPath = string.Empty; // Ne irányítson jogosultság megtagadás oldalra
+
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                };
+            });
+
+
 
 
             // Repositories

@@ -12,18 +12,47 @@ namespace OmegaStreamServices.Services.Repositories
 {
     public class RefreshTokenRepository : BaseRepository<RefreshToken>, IRefreshTokenRepository
     {
-        public RefreshTokenRepository(AppDbContext context) : base(context)
+        private static readonly List<RefreshToken> refreshTokens = new();
+
+        public RefreshTokenRepository()
         {
+        }
+
+        public override Task Add(RefreshToken entity)
+        {
+            refreshTokens.Add(entity);
+            return Task.CompletedTask;
+        }
+
+        public override void Delete(RefreshToken entity)
+        {
+            refreshTokens.Remove(entity);
+        }
+
+        public override async Task<RefreshToken> FindByIdAsync(int id)
+        {
+            return await Task.FromResult(refreshTokens.FirstOrDefault(x => x.Id == id));
+        }
+
+        public override async Task<List<RefreshToken>> GetAll()
+        {
+            return await Task.FromResult(refreshTokens.ToList());
         }
 
         public async Task<RefreshToken> GetByToken(string token)
         {
-            return await _dbSet.Include(x => x.User).FirstOrDefaultAsync(x => x.Token == token)!;
+            return await Task.FromResult(refreshTokens.FirstOrDefault(x => x.Token == token))!;
         }
 
         public async Task<RefreshToken> GetByUserId(string userId)
         {
-            return await _dbSet.FirstOrDefaultAsync(x => x.UserId == userId)!;
+            return await Task.FromResult(refreshTokens.FirstOrDefault(x => x.UserId == userId))!;
+        }
+
+        public override void Update(RefreshToken entity)
+        {
+            int id = refreshTokens.IndexOf(refreshTokens.Find(x => x.Id == entity.Id));
+            refreshTokens[id] = entity;
         }
     }
 }
