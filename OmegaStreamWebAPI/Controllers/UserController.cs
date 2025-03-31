@@ -47,24 +47,14 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
-            var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+            var (refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
 
-            if (token == null)
+            if (user == null)
             {
                 return Unauthorized("Invalid email or password.");
             }
 
             UserDto userDto = _mapper.Map<User, UserDto>(user);
-            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddMinutes(30);
-
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = expirationDate
-            };
-            Response.Cookies.Append("AccessToken", token, accessTokenCookieOptions);
 
             if (refreshToken != null)
             {
@@ -93,21 +83,11 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Refresh token is missing.");
             }
 
-            var (newAccessToken, newRefreshToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+            var (newRefreshToken, user) = await _userService.LogInWithRefreshToken(refreshToken);
 
-            if (newRefreshToken == null || newAccessToken == null || user == null)
+            if (refreshToken == null || user == null)
             {
-                var deleteCookieOptions = new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
-                };
-
-                Response.Cookies.Append("AccessToken", "", deleteCookieOptions);
-                Response.Cookies.Append("RefreshToken", "", deleteCookieOptions);
-
+                Response.Cookies.Delete("RefreshToken");
                 return Unauthorized();
             }
 
@@ -127,7 +107,7 @@ namespace OmegaStreamWebAPI.Controllers
                 Expires = DateTimeOffset.UtcNow.AddDays(1)
             };
 
-            Response.Cookies.Append("AccessToken", newAccessToken, accessTokenCookieOptions);
+            
             Response.Cookies.Append("RefreshToken", newRefreshToken, refreshTokenCookieOptions);
 
             var userRoles = await _userService.GetRoles(user.Id);

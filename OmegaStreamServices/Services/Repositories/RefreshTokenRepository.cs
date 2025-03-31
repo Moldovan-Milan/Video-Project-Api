@@ -49,10 +49,20 @@ namespace OmegaStreamServices.Services.Repositories
             return await Task.FromResult(refreshTokens.FirstOrDefault(x => x.UserId == userId))!;
         }
 
+        public Task<User?> GetUserByToken(string token)
+        {
+            return null; 
+        }
+
         public override void Update(RefreshToken entity)
         {
             int id = refreshTokens.IndexOf(refreshTokens.Find(x => x.Id == entity.Id));
             refreshTokens[id] = entity;
+        }
+
+        Task<string?> IRefreshTokenRepository.GetUserByToken(string token)
+        {
+            throw new NotImplementedException();
         }
     }
 }

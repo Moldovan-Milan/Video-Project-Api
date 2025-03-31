@@ -85,41 +85,6 @@ namespace OmegaStreamWebAPI
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
-            // Authentication
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
-            {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    ValidAudience = builder.Configuration["Jwt:Issuer"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
-                };
-                options.Events = new JwtBearerEvents
-                {
-                    OnMessageReceived = context =>
-                    {
-                        var token = context.Request.Cookies["AccessToken"];
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            context.Token = token;
-                        }
-                        return Task.CompletedTask;
-                    },
-                    //OnChallenge = context =>
-                    //{
-                    //    context.HandleResponse();
-                    //    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    //    context.Response.ContentType = "application/json";
-                    //    return context.Response.WriteAsync("{\"error\":\"Unauthorized\"}");
-                    //}
-                };
-            });
-
             // Turn off identity redirect on status 401
             builder.Services.ConfigureApplicationCookie(options =>
             {
@@ -170,7 +135,6 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
             builder.Services.AddScoped<IAvatarService, AvatarService>();
-            builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
