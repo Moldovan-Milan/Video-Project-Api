@@ -107,8 +107,8 @@ public class UserService : IUserService
         if (!result.Succeeded) return (null, null, null)!;
 
         string accessToken = await _tokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
-        string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
-        return (accessToken, refreshToken, user);
+        //string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
+        return (accessToken, "asd", user);
     }
 
     // Szerintem ez felesleges ide, de még nem törlöm ki
@@ -238,7 +238,7 @@ public class UserService : IUserService
                 _context.ChatMessages.RemoveRange(_context.ChatMessages.Where(x => chatIds.Contains(x.UserChatId)));
                 _context.UserChats.RemoveRange(_context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId));
 
-                _context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
+                //_context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
 
                 if (user.Avatar != null && user.Avatar.Path != "default_avatar")
                 {

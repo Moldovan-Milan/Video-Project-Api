@@ -88,31 +88,32 @@ namespace OmegaStreamWebAPI.Controllers
         {
             var refreshToken = Request.Cookies["RefreshToken"];
 
-            if (string.IsNullOrEmpty(refreshToken))
-            {
-                return BadRequest("Refresh token is missing.");
-            }
+            //if (string.IsNullOrEmpty(refreshToken))
+            //{
+            //    return BadRequest("Refresh token is missing.");
+            //}
 
-            var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+            //var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
 
-            if (newToken == null)
-            {
-                return Forbid();
-            }
+            //if (newToken == null)
+            //{
+            //    return Forbid();
+            //}
 
-            UserDto userDto = _mapper.Map<UserDto>(user);
+            //UserDto userDto = _mapper.Map<UserDto>(user);
 
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddDays(1)
-            };
+            //var cookieOptions = new CookieOptions
+            //{
+            //    HttpOnly = true,
+            //    Secure = true,
+            //    SameSite = SameSiteMode.Strict,
+            //    Expires = DateTimeOffset.UtcNow.AddDays(1)
+            //};
 
-            Response.Cookies.Append("AccessToken", newToken, cookieOptions);
+            //Response.Cookies.Append("AccessToken", newToken, cookieOptions);
 
-            return Ok(new { userDto });
+            //return Ok(new { userDto });
+            return BadRequest();
         }
 
         [Route("logout")]
