@@ -289,6 +289,17 @@ public class UserService : IUserService
         await _context.SaveChangesAsync();
     }
 
+    public async Task DeclineVerification(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        user.IsVerificationRequested = false;
+        await _context.SaveChangesAsync();
+    }
+
     public async Task AddVerificationRequest(string userId)
     {
         var user = await _userManager.FindByIdAsync(userId);

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Dto;
@@ -15,12 +16,14 @@ namespace OmegaStreamWebAPI.Controllers
         private UserManager<User> _userManager;
         private IUserService _userService;
         private SignInManager<User> _signInManager;
+        private IMapper _mapper;
 
-        public AdminController(UserManager<User> userManager, IUserService userService, SignInManager<User> signInManager)
+        public AdminController(UserManager<User> userManager, IUserService userService, SignInManager<User> signInManager, IMapper mapper)
         {
             _userManager = userManager;
             _userService = userService;
             _signInManager = signInManager;
+            _mapper = mapper;
         }
 
         [HttpGet("admin-test")]
@@ -62,11 +65,12 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> GetVerificationRequests([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var users = await _userService.GetVerificationRequests(pageNumber, pageSize);
+            var userDtos = _mapper.Map<List<UserDto>>(users);
 
             bool hasMore = users.Count == pageSize;
             return Ok(new
             {
-                users = users,
+                users = userDtos,
                 hasMore = hasMore
             });
         }
@@ -81,6 +85,18 @@ namespace OmegaStreamWebAPI.Controllers
             }
             await _userService.VerifyUser(userId);
             return Ok("User verified successfully.");
+        }
+
+        [HttpPost("decline-verification/{userId}")]
+        public async Task<IActionResult> DeclineVerification([FromRoute] string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("User Not Found!");
+            }
+            await _userService.DeclineVerification(userId);
+            return Ok("Verification request declined.");
         }
 
         //TODO: stop livestream
