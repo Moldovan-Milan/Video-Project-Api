@@ -13,7 +13,8 @@ namespace OmegaStreamServices.Models
         [Required]
         public int Id { get; set; }
         public string? Background { get; set; }
-        public string? TextColor { get; set; }
+        public string? PrimaryColor { get; set; }
+        public string? SecondaryColor { get; set; }
         public int? BannerId {  get; set; }
         [ForeignKey(nameof(BannerId))]
         public virtual Image? BannerImg { get; set; }

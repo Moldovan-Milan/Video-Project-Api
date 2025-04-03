@@ -179,7 +179,7 @@ public class UserService : IUserService
         return result.Succeeded;
     }
 
-    public async Task<bool> SaveTheme(string? background, string? textColor, Stream? bannerImage, User user)
+    public async Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor, Stream? bannerImage, User user)
     {
         try
         {
@@ -190,8 +190,11 @@ public class UserService : IUserService
             if (background != "null")
                 userTheme.Background = background;
 
-            if (textColor != "null")
-                userTheme.TextColor = textColor;
+            if (primaryColor != "null")
+                userTheme.PrimaryColor = primaryColor;
+
+            if (secondaryColor != "null")
+                userTheme.SecondaryColor = secondaryColor;
 
             if (bannerImage != null)
             {
