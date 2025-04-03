@@ -373,6 +373,37 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Route("{userId}/verification-request/active")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> CheckForVerificationRequest([FromRoute] string userId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if (userIdFromToken != userId && !roles.Contains("Admin"))
+                {
+                    return Forbid("You are not authorized to access this information");
+                }
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("This user is already verified");
+                }
+                bool hasVerificationRequest = await _userService.HasActiveVerificationRequest(userId);
+                return Ok(hasVerificationRequest);
+            }
+            catch(Exception ex)
+            {
+                return HandleException(ex, "verification-request/active");
+            }
+        }
+
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });

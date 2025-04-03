@@ -330,4 +330,13 @@ public class UserService : IUserService
             .ToListAsync();
         return _mapper.Map<List<UserDto>>(users);
     }
+    public async Task<bool> HasActiveVerificationRequest(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        return user.IsVerificationRequested;
+    }
 }

@@ -21,5 +21,6 @@ namespace OmegaStreamServices.Services.UserServices
         Task AddVerificationRequest(string userId);
         Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize);
         Task DeclineVerification(string userId);
+        Task<bool> HasActiveVerificationRequest(string userId);
     }
 }
