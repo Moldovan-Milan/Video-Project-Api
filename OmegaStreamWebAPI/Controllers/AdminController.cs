@@ -131,6 +131,11 @@ namespace OmegaStreamWebAPI.Controllers
             if (!addResult.Succeeded)
                 return BadRequest("Failed to add roles.");
 
+            if (rolesToAdd.Contains("Verified"))
+            {
+                await _userService.DeclineVerification(userId);
+            }
+
             return Ok("Roles updated successfully.");
         }
 
