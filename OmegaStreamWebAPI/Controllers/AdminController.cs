@@ -99,6 +99,41 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok("Verification request declined.");
         }
 
+        [HttpPost("edit-user/{userId}/roles")]
+        public async Task<IActionResult> UpdateUserRoles([FromQuery] string userId, [FromBody] List<string> roles)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound("User not found.");
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+
+            if (user.Email == "admin@omegastream.com" && !roles.Contains("Admin"))
+            {
+                return BadRequest("Cannot remove 'Admin' role from the main administrator.");
+            }
+
+            var allowedRoles = new[] { "Admin", "Verified" };
+
+            var rolesToRemove = currentRoles
+                .Where(r => allowedRoles.Contains(r) && !roles.Contains(r))
+                .ToList();
+
+            var rolesToAdd = roles
+                .Where(r => allowedRoles.Contains(r) && !currentRoles.Contains(r))
+                .ToList();
+
+            var removeResult = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+            if (!removeResult.Succeeded)
+                return BadRequest("Failed to remove roles.");
+
+            var addResult = await _userManager.AddToRolesAsync(user, rolesToAdd);
+            if (!addResult.Succeeded)
+                return BadRequest("Failed to add roles.");
+
+            return Ok("Roles updated successfully.");
+        }
+
         //TODO: stop livestream
     }
 }
