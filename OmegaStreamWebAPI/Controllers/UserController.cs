@@ -46,7 +46,7 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        [HttpGet("/")]
+        [HttpGet]
         public async Task<IActionResult> GetAllUsers([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             try
