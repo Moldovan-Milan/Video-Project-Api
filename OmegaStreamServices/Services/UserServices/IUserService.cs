@@ -10,6 +10,7 @@ namespace OmegaStreamServices.Services.UserServices
         Task<(string, string, User)> LoginUser(string email, string password, bool rememberMe);
         Task LogoutUser();
         Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken);
+        Task<List<User>> GetUsersAsync(int? pageNumber, int? pageSize);
         Task<User?> GetUserById(string id);
         Task<User?> GetUserWithFollowersById(string id);
         Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);

@@ -28,6 +28,44 @@ namespace OmegaStreamWebAPI.Controllers
             _avatarService = avatarService;
         }
 
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetUser(string userId)
+        {
+            try
+            {
+                User user = await _userService.GetUserById(userId);
+                if (user == null)
+                {
+                    return NotFound($"Couldn't find user with id: {userId}");
+                }
+                return Ok(_mapper.Map<UserDto>(user));
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "user/id");
+            }
+        }
+
+        [HttpGet("/")]
+        public async Task<IActionResult> GetAllUsers([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            try
+            {
+                var users = await _userService.GetUsersAsync(pageNumber, pageSize);
+                bool hasMore = users.Count == pageSize;
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+                return Ok(new
+                {
+                    users = userDtos,
+                    hasMore = hasMore
+                });
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "all-users");
+            }
+        }
+
         [Route("register")]
         [HttpPost]
         public async Task<IActionResult> Register([FromForm] string username, [FromForm] string email, [FromForm] string password, [FromForm] IFormFile avatar)
@@ -232,7 +270,6 @@ namespace OmegaStreamWebAPI.Controllers
 
             return Ok(response);
         }
-
 
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> SearchUser(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)

@@ -130,6 +130,24 @@ public class UserService : IUserService
         return (await _tokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
     }
 
+    public async Task<List<User>> GetUsersAsync(int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        return await _userManager.Users
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToListAsync();
+    }
+
     public async Task<User?> GetUserById(string id)
     {
         return await _userManager.Users.Include(x => x.Followers).FirstOrDefaultAsync(
