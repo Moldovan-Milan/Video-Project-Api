@@ -318,20 +318,29 @@ namespace OmegaStreamWebAPI.Controllers
 
         }
 
-        [Route("get-roles")]
+        [Route("get-roles/{userId}")]
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetRoles()
+        public async Task<IActionResult> GetRoles([FromRoute] string? userId)
         {
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                if (userIdFromToken == null)
-                {
-                    return Forbid("You are not logged in!");
-                }
                 var roles = await _userService.GetRoles(userIdFromToken);
-                return Ok(roles);
+                if (userId == null)
+                {
+                    if (userIdFromToken == null)
+                    {
+                        return Forbid("You are not logged in!");
+                    }
+                    return Ok(roles);
+                }
+                if (!roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized!");
+                }
+                var userRoles = await _userService.GetRoles(userId);
+                return Ok(userRoles);
             }
             catch (Exception ex)
             {
