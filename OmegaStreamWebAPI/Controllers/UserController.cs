@@ -350,7 +350,7 @@ namespace OmegaStreamWebAPI.Controllers
         [Authorize]
         [HttpPost]
         [Route("profile/set-theme")]
-        public async Task<IActionResult> SetTheme([FromForm] string? background, [FromForm] string? textColor,
+        public async Task<IActionResult> SetTheme([FromForm] string? background, [FromForm] string? primaryColor, [FromForm] string? secondaryColor,
             [FromForm] IFormFile? bannerImage)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -370,11 +370,11 @@ namespace OmegaStreamWebAPI.Controllers
             bool result;
             if (bannerImage == null)
             {
-                result = await _userService.SaveTheme(background, textColor, null, user);
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, null, user);
             }
             else
             {
-                result = await _userService.SaveTheme(background, textColor, bannerImage.OpenReadStream(), user);
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, bannerImage.OpenReadStream(), user);
             }
 
             if (!result) {

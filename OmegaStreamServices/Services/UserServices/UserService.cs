@@ -296,7 +296,116 @@ public class UserService : IUserService
     }
 
 
-    public async Task<bool> SaveTheme(string? background, string? textColor, Stream? bannerImage, User user)
+    public async Task DeleteAccount(string userId)
+    {
+        using (var transaction = await _context.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
+                if (user == null) return;
+
+                var videos = _context.Videos.Where(x => x.UserId == userId);
+                foreach (var video in videos)
+                {
+                    try
+                    {
+                        await _videoManagementService.DeleteVideoWithAllRelations(video.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete video {video.Id}. Error: {ex.Message}");
+                    }
+                }
+
+                _context.Comments.RemoveRange(_context.Comments.Where(x => x.UserId == userId));
+                _context.Subscriptions.RemoveRange(_context.Subscriptions.Where(x => x.FollowerId == userId || x.FollowedUserId == userId));
+                _context.VideoLikes.RemoveRange(_context.VideoLikes.Where(x => x.UserId == userId));
+                _context.VideoViews.RemoveRange(_context.VideoViews.Where(x => x.UserId == userId));
+
+                var chatIds = _context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId)
+                    .Select(x => x.Id).ToList();
+                _context.ChatMessages.RemoveRange(_context.ChatMessages.Where(x => chatIds.Contains(x.UserChatId)));
+                _context.UserChats.RemoveRange(_context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId));
+
+                //_context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
+
+                if (user.Avatar != null && user.Avatar.Path != "default_avatar")
+                {
+                    try
+                    {
+                        var avatar = await _imageRepository.FindByIdAsync(user.AvatarId);
+                        await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
+                        _imageRepository.Delete(avatar);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete user avatar. Error: {ex.Message}");
+                    }
+                }
+
+                await _userManager.DeleteAsync(user);
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Error: Transaction rolled back. Reason: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+
+    public async Task<List<string>> GetRoles(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        var roles = (await _userManager.GetRolesAsync(user)).ToList();
+        return roles;
+    }
+
+    public async Task<(string? newRefreshToken, User? user)> LogInWithRefreshToken(string refreshToken)
+    {
+        var refreshTokenObj = await _refreshTokenRepository.GetByToken(refreshToken);
+        if (refreshTokenObj == null)
+            return (null, null);
+
+        if (!ValidateToken(refreshTokenObj))
+        {
+            return (null, null);
+        }
+
+        User? user = await _userManager.FindByIdAsync(refreshTokenObj.UserId);
+        if (user == null)
+            return (null, null);
+
+        var newRefreshToken = await _tokenGenerator.GenerateRefreshToken(user.Id);
+        _refreshTokenRepository.Delete(refreshTokenObj);
+        await _refreshTokenRepository.Add(newRefreshToken);
+
+        await _signInManager.SignInAsync(user, true);
+
+        return (newRefreshToken.Token, user);
+    }
+
+    private async Task<string> GenerateRefreshToken(string userId)
+    {
+        var refreshToken = await _tokenGenerator.GenerateRefreshToken(userId);
+        await _refreshTokenRepository.Add(refreshToken);
+        return refreshToken.Token;
+    }
+
+    private bool ValidateToken(RefreshToken token)
+    {
+        return token.ExpiryDate > DateTime.UtcNow;
+    }
+
+
+    public async Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor, Stream? bannerImage, User user)
     {
         try
         {
@@ -307,8 +416,11 @@ public class UserService : IUserService
             if (background != "null")
                 userTheme.Background = background;
 
-            if (textColor != "null")
-                userTheme.TextColor = textColor;
+            if (primaryColor != "null")
+                userTheme.PrimaryColor = primaryColor;
+
+            if (secondaryColor != "null")
+                userTheme.SecondaryColor = secondaryColor;
 
             if (bannerImage != null)
             {
