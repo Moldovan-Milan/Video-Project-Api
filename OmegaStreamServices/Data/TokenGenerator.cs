@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using OmegaStreamServices.Models;
 using System;
@@ -15,13 +16,22 @@ namespace OmegaStreamServices.Data
     public class TokenGenerator
     {
         private readonly UserManager<User> _userManager;
+        private readonly IConfiguration _configuration;
+       
 
-        public TokenGenerator(UserManager<User> userManager)
+        private readonly byte[] JWT_KEY;
+        private readonly string ISSUER;
+
+        public TokenGenerator(UserManager<User> userManager, IConfiguration configuration)
         {
             _userManager = userManager;
+            _configuration = configuration;
+            JWT_KEY = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
+            ISSUER = _configuration["Jwt:Issuer"]!;
         }
-        public async Task<string> GenerateJwtToken(User user, byte[] JwtKey, string issuer)
+        public async Task<string> GenerateJwtToken(string userId)
         {
+            User user = await _userManager.FindByIdAsync(userId);
             var claims = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
@@ -34,26 +44,26 @@ namespace OmegaStreamServices.Data
                 claims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            var key = new SymmetricSecurityKey(JwtKey);
+            var key = new SymmetricSecurityKey(JWT_KEY);
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var token = new JwtSecurityToken(
-                issuer: issuer,
-                audience: issuer,
+                issuer: ISSUER,
+                audience: ISSUER,
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(1),
+                expires: DateTime.UtcNow.AddMinutes(30),
                 signingCredentials: creds
             );
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public static RefreshToken GenerateRefreshToken(string userId)
+        public async Task<RefreshToken> GenerateRefreshToken(string userId)
         {
-            return new RefreshToken
+            return await Task.FromResult(new RefreshToken
             {
                 Token = GenerateSecureToken(),
                 UserId = userId,
-                ExpiryDate = DateTime.UtcNow.AddDays(30),
-            };
+                ExpiryDate = DateTime.UtcNow.AddDays(1),
+            });
         }
 
         private static string GenerateSecureToken()

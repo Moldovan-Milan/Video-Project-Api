@@ -85,24 +85,14 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
-            var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+            var (refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
 
-            if (token == null)
+            if (user == null)
             {
                 return Unauthorized("Invalid email or password.");
             }
 
             UserDto userDto = _mapper.Map<User, UserDto>(user);
-            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddDays(1);
-
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = expirationDate
-            };
-            Response.Cookies.Append("AccessToken", token, accessTokenCookieOptions);
 
             if (refreshToken != null)
             {
@@ -111,7 +101,7 @@ namespace OmegaStreamWebAPI.Controllers
                     HttpOnly = true,
                     Secure = true,
                     SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(30),
+                    Expires = DateTimeOffset.UtcNow.AddDays(1),
                 };
                 Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
             }
@@ -121,7 +111,7 @@ namespace OmegaStreamWebAPI.Controllers
 
 
         [Route("refresh-jwt-token")]
-        [HttpPost]
+        [HttpGet]
         public async Task<IActionResult> RefreshJwtToken()
         {
             var refreshToken = Request.Cookies["RefreshToken"];
@@ -131,16 +121,15 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Refresh token is missing.");
             }
 
-            var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+            var (newRefreshToken, user) = await _userService.LogInWithRefreshToken(refreshToken);
 
-            if (newToken == null)
+            if (newRefreshToken == null || user == null)
             {
-                return Forbid();
+                Response.Cookies.Delete("RefreshToken");
+                return Unauthorized();
             }
 
-            UserDto userDto = _mapper.Map<UserDto>(user);
-
-            var cookieOptions = new CookieOptions
+            var refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
@@ -148,9 +137,12 @@ namespace OmegaStreamWebAPI.Controllers
                 Expires = DateTimeOffset.UtcNow.AddDays(1)
             };
 
-            Response.Cookies.Append("AccessToken", newToken, cookieOptions);
 
-            return Ok(new { userDto });
+            Response.Cookies.Append("RefreshToken", newRefreshToken, refreshTokenCookieOptions);
+
+            var userRoles = await _userService.GetRoles(user.Id);
+
+            return Ok(new { user = _mapper.Map<UserDto>(user), roles = userRoles });
         }
 
         [Route("logout")]
@@ -183,7 +175,7 @@ namespace OmegaStreamWebAPI.Controllers
 
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
             UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
@@ -301,7 +293,7 @@ namespace OmegaStreamWebAPI.Controllers
 
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
             User user = await _userService.GetUserById(userIdFromToken);
@@ -327,7 +319,7 @@ namespace OmegaStreamWebAPI.Controllers
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
                 User user = await _userService.GetUserById(userIdFromToken);
                 if (user == null)
@@ -395,7 +387,7 @@ namespace OmegaStreamWebAPI.Controllers
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
                 var roles = await _userService.GetRoles(userIdFromToken);
                 var user = await _userService.GetUserById(userIdFromToken);

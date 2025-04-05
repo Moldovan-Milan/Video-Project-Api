@@ -212,7 +212,7 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
-                    return Forbid("User id is not valid");
+                    return Unauthorized("User id is not valid");
                 bool success = await _videoLikeService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
                 return Ok(success);
             }
@@ -299,7 +299,7 @@ namespace OmegaStreamWebAPI.Controllers
                 //_logger.LogDebug("User id is: {UserId}, video id is: {VideoId}", userIdFromToken, newComment.VideoId);
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
                 int id = await _commentService.AddNewComment(newComment, userIdFromToken);
                 if (id != -1)
@@ -324,7 +324,7 @@ namespace OmegaStreamWebAPI.Controllers
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
 
                 var comment = await _commentRepository.FindByIdAsync(commentId);
@@ -358,7 +358,7 @@ namespace OmegaStreamWebAPI.Controllers
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
 
                 var comment = await _commentRepository.FindByIdAsync(commentId);
@@ -411,7 +411,7 @@ namespace OmegaStreamWebAPI.Controllers
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
 
