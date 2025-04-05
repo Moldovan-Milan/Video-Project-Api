@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -8,7 +8,7 @@ using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.UserServices;
-using System.Linq;
+using OmegaStreamServices.Services.VideoServices;
 using System.Text;
 
 public class UserService : IUserService
@@ -16,46 +16,51 @@ public class UserService : IUserService
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
-    private readonly IRefreshTokenService _refreshTokenService;
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
     private readonly IUserThemeRepository _userThemeRepository;
-    private readonly ICloudService _cloudService;
     private readonly IImageService _imageService;
+    private readonly IVideoManagementService _videoManagementService;
 
-    private readonly byte[] JWT_KEY;
-    private readonly string ISSUER;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
 
-    public UserService(UserManager<User> userManager,
+    private readonly ICloudService _cloudService;
+    private readonly TokenGenerator _tokenGenerator;
+
+
+    public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IRefreshTokenService refreshTokenService, IMapper mapper, AppDbContext context, IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService)
+
+        IMapper mapper,
+        AppDbContext context,
+        IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService,
+        IVideoManagementService videoManagementService,
+        ICloudService cloudService,
+        TokenGenerator tokenGenerator, IRefreshTokenRepository refreshTokenRepository)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
-        _refreshTokenService = refreshTokenService;
+        _avatarService = avatarService;
         _mapper = mapper;
 
-        JWT_KEY = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
-        ISSUER = _configuration["Jwt:Issuer"]!;
         _context = context;
 
         _imageRepository = imageRepository;
         _userThemeRepository = userThemeRepository;
         _cloudService = cloudService;
         _imageService = imageService;
+        _videoManagementService = videoManagementService;
+
+        _tokenGenerator = tokenGenerator;
+        _refreshTokenRepository = refreshTokenRepository;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
-        //if (await _userManager.FindByEmailAsync(email) != null)
-        //{
-        //    return IdentityResult.Failed(new IdentityError { Description = "Email already exists." });
-        //}
 
         string avatarFileName = await _imageService.SaveImage("images/avatars", avatar);
-
         var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
         var user = new User
         {
@@ -64,25 +69,33 @@ public class UserService : IUserService
             AvatarId = avatarImage != null ? avatarImage.Id : 0,
             Created = DateTime.UtcNow,
         };
-        //user.PasswordHash = _passwordHasher.HashPassword(user, password);
-        return await _userManager.CreateAsync(user, password);
+
+        var result = await _userManager.CreateAsync(user, password);
+
+        if (result.Succeeded)
+        {
+            await _userManager.AddToRoleAsync(user, "User");
+        }
+
+        return result;
+
     }
 
-    public async Task<(string, string, User)> LoginUser(string email, string password, bool rememberMe)
+    public async Task<(string refreshToken, User)> LoginUser(string email, string password, bool rememberMe)
     {
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
-            return (null, null, null)!;
+            return (null, null)!;
 
         var result = await _signInManager.PasswordSignInAsync(user.UserName, password, rememberMe, true);
-        if (!result.Succeeded) return (null, null, null)!;
+        if (!result.Succeeded) return (null, null)!;
 
-        string accessToken = TokenGenerator.GenerateJwtToken(user, JWT_KEY, ISSUER);
-        string refreshToken = rememberMe ? await _refreshTokenService.GetOrGenerateRefreshToken(user.Id) : null!;
-        return (accessToken, refreshToken, user);
+
+        //string accessToken = await _tokenGenerator.GenerateJwtToken(user.Id);
+        string refreshToken = rememberMe ? await GenerateRefreshToken(user.Id) : null!;
+        return (refreshToken, user);
     }
 
-    // Szerintem ez felesleges ide, de még nem törlöm ki
     public async Task LogoutUser()
     {
         await _signInManager.SignOutAsync();
@@ -94,13 +107,7 @@ public class UserService : IUserService
         //return await _avatarService.GetAvatarAsync(id);
     }
 
-    public async Task<(string?, User?)> GenerateJwtWithRefreshToken(string refreshToken)
-    {
-        var (isValid, token) = await _refreshTokenService.ValidateRefreshTokenAsync(refreshToken);
-        if (!isValid) return (null, null);
 
-        return (TokenGenerator.GenerateJwtToken(token.User, JWT_KEY, ISSUER), token.User);
-    }
 
     public async Task<User?> GetUserById(string id)
     {
@@ -130,7 +137,7 @@ public class UserService : IUserService
         User? user = await _userManager.Users
             .Include(x => x.Videos)
             .Include(x => x.Followers)
-            .Include(x=>x.UserTheme)
+            .Include(x => x.UserTheme)
             .FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user != null)
@@ -171,7 +178,7 @@ public class UserService : IUserService
         return _mapper.Map<List<UserDto?>>(users);
     }
 
-    public async Task<bool> UpdateUsername(User user,string newName)
+    public async Task<bool> UpdateUsername(User user, string newName)
     {
         var result = await _userManager.SetUserNameAsync(user, newName);
         await _userManager.UpdateNormalizedUserNameAsync(user);
@@ -246,4 +253,113 @@ public class UserService : IUserService
     {
         return await _imageService.GetImageStreamByIdAsync("images/banner", bannerId);
     }
+    public async Task DeleteAccount(string userId)
+    {
+        using (var transaction = await _context.Database.BeginTransactionAsync())
+        {
+            try
+            {
+                var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
+                if (user == null) return;
+
+                var videos = _context.Videos.Where(x => x.UserId == userId);
+                foreach (var video in videos)
+                {
+                    try
+                    {
+                        await _videoManagementService.DeleteVideoWithAllRelations(video.Id);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete video {video.Id}. Error: {ex.Message}");
+                    }
+                }
+
+                _context.Comments.RemoveRange(_context.Comments.Where(x => x.UserId == userId));
+                _context.Subscriptions.RemoveRange(_context.Subscriptions.Where(x => x.FollowerId == userId || x.FollowedUserId == userId));
+                _context.VideoLikes.RemoveRange(_context.VideoLikes.Where(x => x.UserId == userId));
+                _context.VideoViews.RemoveRange(_context.VideoViews.Where(x => x.UserId == userId));
+
+                var chatIds = _context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId)
+                    .Select(x => x.Id).ToList();
+                _context.ChatMessages.RemoveRange(_context.ChatMessages.Where(x => chatIds.Contains(x.UserChatId)));
+                _context.UserChats.RemoveRange(_context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId));
+
+                //_context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
+
+                if (user.Avatar != null && user.Avatar.Path != "default_avatar")
+                {
+                    try
+                    {
+                        var avatar = await _imageRepository.FindByIdAsync(user.AvatarId);
+                        await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
+                        _imageRepository.Delete(avatar);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete user avatar. Error: {ex.Message}");
+                    }
+                }
+
+                await _userManager.DeleteAsync(user);
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                Console.WriteLine($"Error: Transaction rolled back. Reason: {ex.Message}");
+                throw;
+            }
+        }
+    }
+
+
+    public async Task<List<string>> GetRoles(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        var roles = (await _userManager.GetRolesAsync(user)).ToList();
+        return roles;
+    }
+
+    public async Task<(string? newRefreshToken, User? user)> LogInWithRefreshToken(string refreshToken)
+    {
+        var refreshTokenObj = await _refreshTokenRepository.GetByToken(refreshToken);
+        if (refreshTokenObj == null)
+            return (null, null);
+
+        if (!ValidateToken(refreshTokenObj))
+        {
+            return (null, null);
+        }
+
+        User? user = await _userManager.FindByIdAsync(refreshTokenObj.UserId);
+        if (user == null)
+            return (null, null);
+
+        var newRefreshToken = await _tokenGenerator.GenerateRefreshToken(user.Id);
+        _refreshTokenRepository.Delete(refreshTokenObj);
+        await _refreshTokenRepository.Add(newRefreshToken);
+
+        await _signInManager.SignInAsync(user, true);
+
+        return (newRefreshToken.Token, user);
+    }
+
+    private async Task<string> GenerateRefreshToken(string userId)
+    {
+        var refreshToken = await _tokenGenerator.GenerateRefreshToken(userId);
+        await _refreshTokenRepository.Add(refreshToken);
+        return refreshToken.Token;
+    }
+
+    private bool ValidateToken(RefreshToken token)
+    {
+        return token.ExpiryDate > DateTime.UtcNow;
+    }
+
+
 }

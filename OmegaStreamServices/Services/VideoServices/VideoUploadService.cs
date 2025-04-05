@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
-using WMPLib;
+using MediaInfo;
 using System.Linq.Expressions;
 
 namespace OmegaStreamServices.Services.VideoServices
@@ -99,9 +99,12 @@ namespace OmegaStreamServices.Services.VideoServices
 
             await SaveImageToDatabase(uniqueFileName, defaultThumbnailFormat);
 
-            var duration = GetVideoDuration(finalPath);
-
-            await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId);
+            var (width, height, duration) = GetVideoProperties($"{finalPath}");
+            if (width == 0 || height == 0 || duration == TimeSpan.Zero)
+            {
+                return;
+            }
+            await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId, width, height);
 
             // Ha nincs indexkép, akkor készítünk egyet
             if (image == null)
@@ -118,8 +121,10 @@ namespace OmegaStreamServices.Services.VideoServices
             await _cloudServices.UploadToR2($"{thumbnailUploadPath}/{uniqueFileName}.{defaultThumbnailFormat}", image);
         }
 
-        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId)
+        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId,
+            int width, int height)
         {
+            bool isShort = height > width && duration <= new TimeSpan(0, 3, 0);
 
             Image image = await _imageRepository.FindImageByPath(uniqueFileName);
             Video video = new Video
@@ -131,6 +136,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 Title = title,
                 Description = "Teszt",
                 ThumbnailId = image.Id,
+                IsShort = isShort,
                 UserId = userId
             };
 
@@ -197,11 +203,41 @@ namespace OmegaStreamServices.Services.VideoServices
             }
         }
 
-        private TimeSpan GetVideoDuration(string path)
+        private (int width, int height, TimeSpan duration) GetVideoProperties(string path)
         {
-            WindowsMediaPlayer wmp = new WindowsMediaPlayer();
-            IWMPMedia mediaInfo = wmp.newMedia(path);
-            return TimeSpan.FromSeconds(mediaInfo.duration);
+            try
+            {
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"The file does not exist at: {path}");
+                }
+
+                MediaInfo.MediaInfo mediaInfo = new MediaInfo.MediaInfo();
+                mediaInfo.Open(path);
+
+                string widthStr = mediaInfo.Get(StreamKind.Video, 0, "Width");
+                string heightStr = mediaInfo.Get(StreamKind.Video, 0, "Height");
+                string durationStr = mediaInfo.Get(StreamKind.General, 0, "Duration");
+
+                if (string.IsNullOrEmpty(widthStr) || string.IsNullOrEmpty(heightStr) || string.IsNullOrEmpty(durationStr))
+                {
+                    throw new Exception("Missing or invalid media property values.");
+                }
+
+                int width = int.Parse(widthStr);
+                int height = int.Parse(heightStr);
+                double durationInMilisec = double.Parse(durationStr);
+
+                TimeSpan duration = TimeSpan.FromMilliseconds(durationInMilisec);
+
+                mediaInfo.Close();
+                return (width, height, duration);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error happened: {ex.Message}");
+            }
+            return (0, 0, TimeSpan.Zero);
         }
     }
 }

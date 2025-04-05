@@ -14,7 +14,6 @@ namespace OmegaStreamServices.Data
         public DbSet<Image> Images { get; set; }
         public DbSet<VideoLikes> VideoLikes { get; set; }
         public DbSet<Comment> Comments { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<UserChats> UserChats { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }

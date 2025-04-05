@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using OmegaStreamServices.Services.UserServices;
-using OmegaStreamServices.Models;
-using OmegaStreamServices.Services.Repositories;
-using OmegaStreamServices.Services;
-using System.Security.Claims;
 using OmegaStreamServices.Dto;
-using AutoMapper;
+using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
+using OmegaStreamServices.Services.Repositories;
+using OmegaStreamServices.Services.UserServices;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -18,6 +18,7 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IUserService _userService;
         private readonly IImageService _imageService;
         private readonly IMapper _mapper;
+
 
 
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
@@ -47,24 +48,14 @@ namespace OmegaStreamWebAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
-            var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+            var (refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
 
-            if (token == null)
+            if (user == null)
             {
                 return Unauthorized("Invalid email or password.");
             }
 
             UserDto userDto = _mapper.Map<User, UserDto>(user);
-            DateTimeOffset expirationDate = DateTimeOffset.UtcNow.AddDays(1);
-
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = expirationDate
-            };
-            Response.Cookies.Append("AccessToken", token, accessTokenCookieOptions);
 
             if (refreshToken != null)
             {
@@ -73,7 +64,7 @@ namespace OmegaStreamWebAPI.Controllers
                     HttpOnly = true,
                     Secure = true,
                     SameSite = SameSiteMode.Strict,
-                    Expires = DateTimeOffset.UtcNow.AddDays(30),
+                    Expires = DateTimeOffset.UtcNow.AddDays(1),
                 };
                 Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
             }
@@ -83,7 +74,7 @@ namespace OmegaStreamWebAPI.Controllers
 
 
         [Route("refresh-jwt-token")]
-        [HttpPost]
+        [HttpGet]
         public async Task<IActionResult> RefreshJwtToken()
         {
             var refreshToken = Request.Cookies["RefreshToken"];
@@ -93,16 +84,15 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Refresh token is missing.");
             }
 
-            var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
+            var (newRefreshToken, user) = await _userService.LogInWithRefreshToken(refreshToken);
 
-            if (newToken == null)
+            if (newRefreshToken == null || user == null)
             {
-                return Forbid();
+                Response.Cookies.Delete("RefreshToken");
+                return Unauthorized();
             }
 
-            UserDto userDto = _mapper.Map<UserDto>(user);
-
-            var cookieOptions = new CookieOptions
+            var refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
@@ -110,9 +100,12 @@ namespace OmegaStreamWebAPI.Controllers
                 Expires = DateTimeOffset.UtcNow.AddDays(1)
             };
 
-            Response.Cookies.Append("AccessToken", newToken, cookieOptions);
 
-            return Ok(new { userDto });
+            Response.Cookies.Append("RefreshToken", newRefreshToken, refreshTokenCookieOptions);
+
+            var userRoles = await _userService.GetRoles(user.Id);
+
+            return Ok(new { user = _mapper.Map<UserDto>(user), roles = userRoles });
         }
 
         [Route("logout")]
@@ -143,13 +136,12 @@ namespace OmegaStreamWebAPI.Controllers
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
-            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken,pageNumber,pageSize);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
 
             return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
@@ -177,10 +169,10 @@ namespace OmegaStreamWebAPI.Controllers
             UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
             bool hasMore = user.Videos.Count == pageSize;
 
-            return user == null ? NotFound() : Ok(new 
-            { 
-                user = user,
-                hasMore = hasMore 
+            return user == null ? NotFound() : Ok(new
+            {
+                user = _mapper.Map<UserWithVideosDto>(user),
+                hasMore = hasMore
             });
         }
 
@@ -194,7 +186,8 @@ namespace OmegaStreamWebAPI.Controllers
                 return File(file, extension);
 
             }
-            catch (Exception ex){
+            catch (Exception ex)
+            {
                 return BadRequest(ex.Message);
             }
         }
@@ -280,7 +273,7 @@ namespace OmegaStreamWebAPI.Controllers
 
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
             User user = await _userService.GetUserById(userIdFromToken);
@@ -290,7 +283,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return NotFound();
             }
 
-            await _userService.UpdateUsername(user,newName);
+            await _userService.UpdateUsername(user, newName);
 
             return Ok(_mapper.Map<UserDto>(user));
 
@@ -326,18 +319,76 @@ namespace OmegaStreamWebAPI.Controllers
                 result = await _userService.SaveTheme(background, primaryColor, secondaryColor, bannerImage.OpenReadStream(), user);
             }
 
-            if (!result) {
+            if (!result)
+            {
                 return BadRequest("An error happened!");
             }
             return Ok();
+        }
+
+        [Authorize]
+        [Route("profile/delete-account")]
+        [HttpDelete]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+                User user = await _userService.GetUserById(userIdFromToken);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+                await _userService.DeleteAccount(userIdFromToken);
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                };
+
+                Response.Cookies.Append("AccessToken", "", cookieOptions);
+                Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "delete-account");
+            }
+
+        }
+
+        [Route("get-roles")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetRoles()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                return Ok(roles);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "get-roles");
+            }
         }
 
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }
-
-        
     }
 }
 

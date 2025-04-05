@@ -19,7 +19,8 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly IVideoViewRepository _videoViewRepository;
         private readonly ICommentRepositroy _commentRepository;
         private readonly IImageRepository _imageRepository;
-        public VideoManagementService(IVideoRepository videoRepository, ICloudService cloudService, IVideoLikesRepository videoLikesRepository, IVideoViewRepository videoViewRepository, ICommentRepositroy commentRepository, IImageRepository imageRepository)
+        private readonly IImageService _imageService;
+        public VideoManagementService(IVideoRepository videoRepository, ICloudService cloudService, IVideoLikesRepository videoLikesRepository, IVideoViewRepository videoViewRepository, ICommentRepositroy commentRepository, IImageRepository imageRepository, IImageService imageService)
         {
             _videoRepository = videoRepository;
             _cloudService = cloudService;
@@ -27,6 +28,7 @@ namespace OmegaStreamServices.Services.VideoServices
             _videoViewRepository = videoViewRepository;
             _commentRepository = commentRepository;
             _imageRepository = imageRepository;
+            _imageService = imageService;
         }
         public async Task DeleteVideoWithAllRelations(int id)
         {
@@ -46,17 +48,37 @@ namespace OmegaStreamServices.Services.VideoServices
             var deleteReactionsTask = _videoLikesRepository.DeleteMultipleAsync(reactionsTask.Result);
             var deleteViewsTask = _videoViewRepository.DeleteMultipleAsync(viewsTask.Result);
 
-            var deleteFilesTask = _cloudService.DeleteFilesAsync($"videos/{video.Path}");
-            var deleteThumbnailTask = _cloudService.DeleteFileAsync($"images/thumbnails/{video.Thumbnail.Path}.{video.Thumbnail.Extension}");
+            try
+            {
+                await _cloudService.DeleteFilesAsync($"videos/{video.Path}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to delete video file {video.Path}. Error: {ex.Message}");
+            }
 
-            await Task.WhenAll(deleteFilesTask, deleteThumbnailTask, deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
+            try
+            {
+                await _cloudService.DeleteFileAsync($"images/thumbnails/{video.Thumbnail.Path}.{video.Thumbnail.Extension}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to delete video thumbnail {video.Thumbnail.Path}. Error: {ex.Message}");
+            }
+
+            await Task.WhenAll(deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
 
             await _videoRepository.DeleteVideoWithRelationsAsync(video);
+
             var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
-            _imageRepository.Delete(image);
+            if (image != null)
+            {
+                _imageRepository.Delete(image);
+            }
         }
 
-        public async Task EditVideo(int id, string? title, string? description/*, IFormFile? image*/)
+
+        public async Task EditVideo(int id, string? title, string? description, IFormFile? image)
         {
             Video video = await _videoRepository.GetVideoWithInclude(id);
             if (video == null)
@@ -72,29 +94,11 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 video.Description = description;
             }
-
-            /*
             if (image != null)
             {
-                var imageToDelete = await _imageRepository.FindByIdAsync(video.ThumbnailId);
-                if (imageToDelete != null)
-                {
-                    await _cloudService.DeleteFileAsync($"images/thumbnails/{imageToDelete.Path}.{imageToDelete.Extension}");
-                    _imageRepository.Delete(imageToDelete);
-                }
-
-                var newImage = new Image
-                {
-                    Path = FileManager.GenerateFileName(),
-                    Extension = "png"
-                };
-                await _imageRepository.Add(newImage);
-                video.ThumbnailId = newImage.Id;
-
-                await _cloudService.UploadToR2($"images/thumbnails/{newImage.Path}.{newImage.Extension}", image.OpenReadStream());
+                await _imageService.ReplaceImage("images/thumbnails", video.Thumbnail.Path, image.OpenReadStream());
+                
             }
-            */
-
             _videoRepository.Update(video);
         }
 
