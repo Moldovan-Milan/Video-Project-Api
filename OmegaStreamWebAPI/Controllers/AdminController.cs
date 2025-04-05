@@ -40,7 +40,7 @@ namespace OmegaStreamWebAPI.Controllers
             }
             user.UserName = username;
 
-            await _userManager.UpdateAsync(user);
+            await _userService.UpdateUsername(user, username);
             return NoContent();
         }
 
