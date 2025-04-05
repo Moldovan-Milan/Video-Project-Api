@@ -15,7 +15,6 @@ public class UserService : IUserService
 {
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
-    private readonly IConfiguration _configuration;
     private readonly IAvatarService _avatarService;
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
@@ -40,7 +39,6 @@ public class UserService : IUserService
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _configuration = configuration;
         _avatarService = avatarService;
         _mapper = mapper;
 

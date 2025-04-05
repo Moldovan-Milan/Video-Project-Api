@@ -91,14 +91,6 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized();
             }
 
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(30)
-            };
-
             var refreshTokenCookieOptions = new CookieOptions
             {
                 HttpOnly = true,
