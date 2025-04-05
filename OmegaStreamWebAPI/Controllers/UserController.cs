@@ -107,12 +107,12 @@ namespace OmegaStreamWebAPI.Controllers
                 Expires = DateTimeOffset.UtcNow.AddDays(1)
             };
 
-            
+
             Response.Cookies.Append("RefreshToken", newRefreshToken, refreshTokenCookieOptions);
 
             var userRoles = await _userService.GetRoles(user.Id);
 
-            return Ok(new {user = _mapper.Map<UserDto>(user), roles = userRoles});
+            return Ok(new { user = _mapper.Map<UserDto>(user), roles = userRoles });
         }
 
         [Route("logout")]
