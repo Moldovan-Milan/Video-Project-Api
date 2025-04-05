@@ -12,7 +12,8 @@ namespace OmegaStreamServices.Services.VideoServices
 
         Task SaveImageToDatabase(string fileName, string extension);
 
-        Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId);
+        Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId,
+             int width, int height);
         Task UploadVideoToR2(string folderName);
     }
 }

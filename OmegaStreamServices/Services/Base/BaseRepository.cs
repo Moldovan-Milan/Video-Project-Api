@@ -14,6 +14,10 @@ namespace OmegaStreamServices.Services.Base
         protected readonly AppDbContext _context;
         protected readonly DbSet<T> _dbSet;
 
+        public BaseRepository()
+        {
+        }
+
         public BaseRepository(AppDbContext context)
         {
             _context = context;

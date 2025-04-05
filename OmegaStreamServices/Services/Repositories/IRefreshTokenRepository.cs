@@ -12,5 +12,6 @@ namespace OmegaStreamServices.Services.Repositories
     {
         Task<RefreshToken> GetByUserId(string userId);
         Task<RefreshToken> GetByToken(string token);
+        Task<string?> GetUserByToken(string token);
     }
 }

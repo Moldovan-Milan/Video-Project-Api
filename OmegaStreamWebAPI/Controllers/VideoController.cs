@@ -1,7 +1,9 @@
 using Amazon.Runtime.Internal;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
@@ -27,8 +29,10 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IVideoManagementService _videoManagementService;
         private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
+        private readonly UserManager<User> _userManager;
+        private readonly ICommentRepositroy _commentRepository;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -40,6 +44,8 @@ namespace OmegaStreamWebAPI.Controllers
             _videoViewService = videoViewService;
             _encryptionHelper = encryptionHelper;
             _videoManagementService = videoManagementService;
+            _userManager = userManager;
+            _commentRepository = commentRepository;
         }
 
         #region Video Stream
@@ -83,12 +89,15 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "segment");
             }
         }
+        #endregion
+
+        #region Metadata
 
         [HttpGet]
         public async Task<IActionResult> GetVideosData([FromQuery]int? pageNumber, [FromQuery] int? pageSize)
         {
             _logger.LogInformation("Fetching all video metadata.");
-            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize);
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize, false);
             if (videos == null || videos.Count == 0)
             {
                 _logger.LogWarning("No videos found.");
@@ -99,6 +108,28 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(new
             {
                 videos = videos,
+                hasMore = hasMore
+            });
+        }
+
+
+        // This could be simplified
+        [HttpGet]
+        [Route("shorts")]
+        public async Task<IActionResult> GetShortsData([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            _logger.LogInformation("Fetching all shorts metadata.");
+            var videos = await _videoMetadataService.GetAllVideosMetaData(pageNumber, pageSize, true);
+            if (videos == null || videos.Count == 0)
+            {
+                _logger.LogWarning("No shorts found.");
+                return NotFound();
+            }
+            bool hasMore = videos.Count == pageSize;
+            _logger.LogInformation("Successfully fetched video metadata.");
+            return Ok(new
+            {
+                shorts = videos,
                 hasMore = hasMore
             });
         }
@@ -181,7 +212,7 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (userIdFromToken == null)
-                    return Forbid("User id is not valid");
+                    return Unauthorized("User id is not valid");
                 bool success = await _videoLikeService.UpdateUserLikedVideo(videoId, userIdFromToken, value);
                 return Ok(success);
             }
@@ -241,7 +272,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return BadRequest("Search is null");
             try
             {
-                var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize);
+                var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize, false);
                 bool hasMore = videos.Count == pageSize;
                 return Ok(new
                 {
@@ -254,6 +285,9 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "search");
             }
         }
+        #endregion
+
+        #region Comments
 
         [Authorize]
         [HttpPost("write-new-comment")]
@@ -265,7 +299,7 @@ namespace OmegaStreamWebAPI.Controllers
                 //_logger.LogDebug("User id is: {UserId}, video id is: {VideoId}", userIdFromToken, newComment.VideoId);
                 if (userIdFromToken == null)
                 {
-                    return Forbid("You are not logged in!");
+                    return Unauthorized("You are not logged in!");
                 }
                 int id = await _commentService.AddNewComment(newComment, userIdFromToken);
                 if (id != -1)
@@ -279,7 +313,77 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        #endregion Video Stream
+        
+
+        [Authorize]
+        [HttpPatch("edit-comment/{commentId}")]
+        public async Task<IActionResult> EditComment([FromRoute] int commentId, [FromBody] string content)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+
+                var comment = await _commentRepository.FindByIdAsync(commentId);
+                if(comment == null)
+                {
+                    return NotFound($"Comment with id: {commentId} Not Found");
+                }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
+                if (comment.UserId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized to edit this comment.");
+                }
+                comment.Content = content;
+                _commentRepository.Update(comment);
+                
+                return NoContent();
+            }
+            catch(Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("delete-comment/{commentId}")]
+        public async Task<IActionResult> DeleteComment([FromRoute] int commentId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+
+                var comment = await _commentRepository.FindByIdAsync(commentId);
+                if (comment == null)
+                {
+                    return NotFound($"Comment with id: {commentId} Not Found");
+                }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
+                if (comment.UserId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized to edit this comment.");
+                }
+                _commentRepository.Delete(comment);
+
+                return NoContent();
+            }
+            catch (Exception e)
+            {
+                return BadRequest(e.Message);
+            }
+        }
+
+
+        #endregion
 
         #region Video Upload
 
@@ -307,7 +411,7 @@ namespace OmegaStreamWebAPI.Controllers
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
 
@@ -402,15 +506,18 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
                 var video = await _videoMetadataService.GetVideoMetaData(videoId);
                 if (video == null)
                 {
                     return NotFound("Video not found.");
                 }
-                if (userIdFromToken == null || video.UserId != userIdFromToken)
+                if (userIdFromToken == null || (video.UserId != userIdFromToken && !roles.Contains("Admin")))
                 {
                     return Unauthorized("You are not authorized to delete this video.");
                 }
+                    
                 await _videoManagementService.DeleteVideoWithAllRelations(videoId);
                 return NoContent();
             }
@@ -424,8 +531,8 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> EditVideo(
             [FromRoute] int videoId,
             [FromForm] string? title,
-            [FromForm] string? description/*,
-            [FromForm] IFormFile? image*/)
+            [FromForm] string? description,
+            [FromForm] IFormFile? image)
         {
             try
             {
@@ -440,13 +547,15 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound("Video not found.");
                 }
+                var user = await _userManager.FindByIdAsync(userIdFromToken);
+                var roles = await _userManager.GetRolesAsync(user);
 
-                if (video.UserId != userIdFromToken)
+                if (video.UserId != userIdFromToken && !roles.Contains("Admin"))
                 {
                     return Forbid();
                 }
 
-                await _videoManagementService.EditVideo(videoId, title, description/*, image*/);
+                await _videoManagementService.EditVideo(videoId, title, description, image);
                 return NoContent();
             }
             catch (KeyNotFoundException)

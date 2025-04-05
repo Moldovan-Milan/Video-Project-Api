@@ -56,10 +56,17 @@ namespace OmegaStreamWebAPI
 
             builder.Services.AddMemoryCache();
 
-            // Db connection
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-            builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite("Data Source=omega_stream.sqlite"));
+            //// Db connection
+            //var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            //builder.Services.AddDbContext<AppDbContext>(options =>
+            //    options.UseSqlite("Data Source=omega_stream.sqlite"));
+
+
+            string connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+            builder.Services.AddDbContext<AppDbContext>(opt =>
+            {
+                opt.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+            });
 
             // Identity
             builder.Services.Configure<IdentityOptions>(options =>
@@ -81,36 +88,38 @@ namespace OmegaStreamWebAPI
             );
 
             builder.Services.AddIdentity<User, IdentityRole>()
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
-            // Authentication
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            // Turn off identity redirect on status 401
+            builder.Services.ConfigureApplicationCookie(options =>
             {
-                options.TokenValidationParameters = new TokenValidationParameters
+                // Default cookie options
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS
+                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.MaxAge = TimeSpan.FromMinutes(30); // Cookie élettartama
+
+                options.LoginPath = string.Empty; // Ne irányítson bejelentkezési oldalra
+                options.AccessDeniedPath = string.Empty; // Ne irányítson jogosultság megtagadás oldalra
+
+                options.Events.OnRedirectToLogin = context =>
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    ValidAudience = builder.Configuration["Jwt:Issuer"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
                 };
-                options.Events = new JwtBearerEvents
+
+                options.Events.OnRedirectToAccessDenied = context =>
                 {
-                    OnMessageReceived = context =>
-                    {
-                        var token = context.Request.Cookies["AccessToken"];
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            context.Token = token;
-                        }
-                        return Task.CompletedTask;
-                    }
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
                 };
             });
+
+
 
 
             // Repositories
@@ -133,7 +142,7 @@ namespace OmegaStreamWebAPI
             //builder.Services.AddScoped<IFileManagerService, FileManagerService>();
             builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
-            builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+            builder.Services.AddScoped<IAvatarService, AvatarService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
@@ -141,8 +150,11 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoViewService, VideoViewService>();
             builder.Services.AddScoped<IVideoManagementService, VideoManagementService>();
             builder.Services.AddScoped<IImageService, ImageService>();
+            
 
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
+
+            builder.Services.AddScoped<TokenGenerator>();
 
             // SingalR
             builder.Services.AddSignalR();
@@ -167,6 +179,28 @@ namespace OmegaStreamWebAPI
             });
 
             var app = builder.Build();
+
+            var scope = app.Services.CreateScope();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+            string[] roles = { "Admin", "Verified", "User" };
+            foreach (var role in roles)
+            {
+                if (!roleManager.RoleExistsAsync(role).Result)
+                {
+                    roleManager.CreateAsync(new IdentityRole(role)).Wait();
+                }
+            }
+
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+            var user = userManager.FindByEmailAsync("admin@omegastream.com").Result;
+            if (user != null)
+            {
+                userManager.AddToRoleAsync(user, "User").Wait();
+                userManager.AddToRoleAsync(user, "Verified").Wait();
+                userManager.AddToRoleAsync(user, "Admin").Wait();
+            }
+
 
             // For private chat
             app.UseWebSockets();
