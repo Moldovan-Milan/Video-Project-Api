@@ -85,19 +85,11 @@ namespace OmegaStreamWebAPI.Controllers
 
             var (newRefreshToken, user) = await _userService.LogInWithRefreshToken(refreshToken);
 
-            if (refreshToken == null || user == null)
+            if (newRefreshToken == null || user == null)
             {
                 Response.Cookies.Delete("RefreshToken");
                 return Unauthorized();
             }
-
-            var accessTokenCookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                Expires = DateTimeOffset.UtcNow.AddMinutes(30)
-            };
 
             var refreshTokenCookieOptions = new CookieOptions
             {
