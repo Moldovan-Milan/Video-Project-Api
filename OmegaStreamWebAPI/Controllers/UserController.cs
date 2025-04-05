@@ -286,7 +286,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Authorize]
         [Route("profile/update-username")]
-        [HttpPost]
+        [HttpPatch]
         public async Task<IActionResult> UpdateUsername([FromQuery] string newName)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

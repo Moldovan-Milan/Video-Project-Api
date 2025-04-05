@@ -99,8 +99,8 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok("Verification request declined.");
         }
 
-        [HttpPost("edit-user/{userId}/roles")]
-        public async Task<IActionResult> UpdateUserRoles([FromQuery] string userId, [FromBody] List<string> roles)
+        [HttpPost("update-roles/{userId}")]
+        public async Task<IActionResult> UpdateUserRoles([FromRoute] string userId, [FromBody] List<string> roles)
         {
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
