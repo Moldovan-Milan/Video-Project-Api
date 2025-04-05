@@ -18,6 +18,7 @@ namespace OmegaStreamServices.Data
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<Subscription> Subscriptions { get; set; }
         public DbSet<VideoView> VideoViews { get; set; }
+        public DbSet<UserTheme> UserThemes { get; set; }
 
         #endregion DbSet
 

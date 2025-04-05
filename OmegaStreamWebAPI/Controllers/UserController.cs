@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -16,16 +16,17 @@ namespace OmegaStreamWebAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private IAvatarService _avatarService;
+        private readonly IImageService _imageService;
         private readonly IMapper _mapper;
 
 
+
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
-            IMapper mapper, IAvatarService avatarService)
+            IMapper mapper, IImageService imageService)
         {
             _userService = userManagerService;
             _mapper = mapper;
-            _avatarService = avatarService;
+            _imageService = imageService;
         }
 
         [Route("register")]
@@ -145,6 +146,22 @@ namespace OmegaStreamWebAPI.Controllers
             return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
         }
 
+        [HttpGet]
+        [Route("banner/{id}")]
+        public async Task<IActionResult> GetBannerImage(int id)
+        {
+            try
+            {
+                (Stream file, string extension) = await _userService.GetBannerAsync(id);
+                return File(file, extension);
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [Route("profile/{id}")]
         [HttpGet]
         public async Task<IActionResult> GetUserProfileWithVideos(string id, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
@@ -165,7 +182,7 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-                (Stream file, string extension) = await _avatarService.GetAvatarAsync(id);
+                (Stream file, string extension) = await _imageService.GetImageStreamByIdAsync("images/avatars", id);
                 return File(file, extension);
 
             }
@@ -270,6 +287,43 @@ namespace OmegaStreamWebAPI.Controllers
 
             return Ok(_mapper.Map<UserDto>(user));
 
+        }
+
+        [Authorize]
+        [HttpPost]
+        [Route("profile/set-theme")]
+        public async Task<IActionResult> SetTheme([FromForm] string? background, [FromForm] string? primaryColor, [FromForm] string? secondaryColor,
+            [FromForm] IFormFile? bannerImage)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken == null)
+            {
+                return Forbid("You are not logged in!");
+            }
+
+            User? user = await _userService.GetUserById(userIdFromToken);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            bool result;
+            if (bannerImage == null)
+            {
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, null, user);
+            }
+            else
+            {
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, bannerImage.OpenReadStream(), user);
+            }
+
+            if (!result)
+            {
+                return BadRequest("An error happened!");
+            }
+            return Ok();
         }
 
         [Authorize]
