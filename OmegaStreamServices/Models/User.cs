@@ -21,9 +21,9 @@ namespace OmegaStreamServices.Models
         [ForeignKey("UserThemeId")]
         public UserTheme? UserTheme { get; set; }
 
-        //[Column("verified")]
-        //[Required]
-        //public bool Verified { get; set; }
+        [Column("verification_requested")]
+        [Required]
+        public bool IsVerificationRequested { get; set; } = false;
 
         // Relationships
 

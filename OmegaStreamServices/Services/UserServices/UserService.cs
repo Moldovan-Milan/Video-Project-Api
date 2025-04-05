@@ -36,13 +36,11 @@ public class UserService : IUserService
         AppDbContext context,
         IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService,
         IVideoManagementService videoManagementService,
-        ICloudService cloudService,
         TokenGenerator tokenGenerator, IRefreshTokenRepository refreshTokenRepository)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
-        _avatarService = avatarService;
         _mapper = mapper;
 
         _context = context;
