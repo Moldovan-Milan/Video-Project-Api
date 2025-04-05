@@ -29,7 +29,7 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok("If you see this, you are an admin user!");
         }
 
-        [HttpPatch("edit-user/{userId}")]
+        [HttpPost("edit-user/{userId}")]
         public async Task<IActionResult> EditUser([FromRoute] string userId, [FromQuery] string username)
         {
             //TODO: Avatar and banner
