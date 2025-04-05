@@ -92,33 +92,34 @@ namespace OmegaStreamWebAPI
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
-            // Authentication
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(options =>
+            // Turn off identity redirect on status 401
+            builder.Services.ConfigureApplicationCookie(options =>
             {
-                options.TokenValidationParameters = new TokenValidationParameters
+                // Default cookie options
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // HTTPS
+                options.Cookie.SameSite = SameSiteMode.Strict;
+                options.Cookie.MaxAge = TimeSpan.FromMinutes(30); // Cookie élettartama
+
+                options.LoginPath = string.Empty; // Ne irányítson bejelentkezési oldalra
+                options.AccessDeniedPath = string.Empty; // Ne irányítson jogosultság megtagadás oldalra
+
+                options.Events.OnRedirectToLogin = context =>
                 {
-                    ValidateIssuer = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    ValidAudience = builder.Configuration["Jwt:Issuer"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
                 };
-                options.Events = new JwtBearerEvents
+
+                options.Events.OnRedirectToAccessDenied = context =>
                 {
-                    OnMessageReceived = context =>
-                    {
-                        var token = context.Request.Cookies["AccessToken"];
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            context.Token = token;
-                        }
-                        return Task.CompletedTask;
-                    }
+                    context.Response.Clear();
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
                 };
             });
+
+
 
 
             // Repositories
@@ -141,7 +142,6 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
             builder.Services.AddScoped<IAvatarService, AvatarService>();
-            builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();
