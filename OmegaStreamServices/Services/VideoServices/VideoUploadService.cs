@@ -60,7 +60,11 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 FileManager.CreateDirectory($"{AppContext.BaseDirectory}/temp");
             }
-            var chunkPath = Path.Combine($"{AppContext.BaseDirectory}/temp", $"{fileName}.part{chunkNumber}");
+            if (!File.Exists($"{AppContext.BaseDirectory}/temp/{fileName}"))
+            {
+                FileManager.CreateDirectory($"{AppContext.BaseDirectory}/temp/{fileName}");
+            }
+            var chunkPath = Path.Combine($"{AppContext.BaseDirectory}/temp/{fileName}", $"{fileName}.part{chunkNumber}");
             await FileManager.SaveStreamToFileAsync(chunkPath, chunk);
         }
 
@@ -94,7 +98,7 @@ namespace OmegaStreamServices.Services.VideoServices
             }
 
             // Ez hozza létre az mp4 videót
-            await AssembleAndSaveVideo(finalPath, fileName, $"{AppContext.BaseDirectory}/temp", totalChunks);
+            await AssembleAndSaveVideo(finalPath, fileName, $"{AppContext.BaseDirectory}/temp/{fileName}", totalChunks);
 
 
             await SaveImageToDatabase(uniqueFileName, defaultThumbnailFormat);
@@ -195,6 +199,7 @@ namespace OmegaStreamServices.Services.VideoServices
                         chunkStream.Dispose();
                         FileManager.DeleteFile(chunkPath);
                     }
+                    FileManager.DeleteDirectory(tempPath);
                 }
             }
             catch (IOException ex)

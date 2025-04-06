@@ -38,15 +38,15 @@ namespace OmegaStreamServices.Services.VideoServices
                 throw new Exception($"Video with ID {id} not found.");
             }
 
-            var commentsTask = _commentRepository.GetAllCommentsByVideo(video.Id);
-            var reactionsTask = _videoLikesRepository.GetAllReactionsByVideo(video.Id);
-            var viewsTask = _videoViewRepository.GetAllVideoViewsByVideo(video.Id);
+            var commentsTask = await _commentRepository.GetAllCommentsByVideo(video.Id);
+            var reactionsTask = await _videoLikesRepository.GetAllReactionsByVideo(video.Id);
+            var viewsTask = await _videoViewRepository.GetAllVideoViewsByVideo(video.Id);
 
-            await Task.WhenAll(commentsTask, reactionsTask, viewsTask);
+            //await Task.WhenAll(commentsTask, reactionsTask, viewsTask);
 
-            var deleteCommentsTask = _commentRepository.DeleteMultipleAsync(commentsTask.Result);
-            var deleteReactionsTask = _videoLikesRepository.DeleteMultipleAsync(reactionsTask.Result);
-            var deleteViewsTask = _videoViewRepository.DeleteMultipleAsync(viewsTask.Result);
+            await _commentRepository.DeleteMultipleAsync(commentsTask);
+            await _videoLikesRepository.DeleteMultipleAsync(reactionsTask);
+            await _videoViewRepository.DeleteMultipleAsync(viewsTask);
 
             try
             {
@@ -66,14 +66,14 @@ namespace OmegaStreamServices.Services.VideoServices
                 Console.WriteLine($"Warning: Failed to delete video thumbnail {video.Thumbnail.Path}. Error: {ex.Message}");
             }
 
-            await Task.WhenAll(deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
+            //await Task.WhenAll(deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
 
             await _videoRepository.DeleteVideoWithRelationsAsync(video);
 
             var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
             if (image != null)
             {
-                _imageRepository.Delete(image);
+                await _imageRepository.Delete(image);
             }
         }
 

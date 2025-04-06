@@ -10,6 +10,6 @@ namespace OmegaStreamServices.Models
     {
         public string UserId { get; set; }
         public string VideoName { get; set; }
-        public DateTime UploadStartDate { get; set; }
+        public DateTime ExpirationDate { get; set; } = DateTime.UtcNow.AddMinutes(5); // Default expiration date is 5 minutes from upload
     }
 }

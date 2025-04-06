@@ -31,8 +31,9 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly ILogger<VideoController> _logger;
         private readonly UserManager<User> _userManager;
         private readonly ICommentRepositroy _commentRepository;
+        private readonly IUserVideoUploadRepositroy _userVideoUploadRepositroy;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository)
+        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository, IUserVideoUploadRepositroy userVideoUploadRepositroy)
         {
             _videoUploadService = videoUploadService;
             _videoStreamService = videoStreamService;
@@ -46,6 +47,7 @@ namespace OmegaStreamWebAPI.Controllers
             _videoManagementService = videoManagementService;
             _userManager = userManager;
             _commentRepository = commentRepository;
+            _userVideoUploadRepositroy = userVideoUploadRepositroy;
         }
 
         #region Video Stream
@@ -390,19 +392,38 @@ namespace OmegaStreamWebAPI.Controllers
         [Authorize(Roles = "Verified,Admin")]
         [HttpPost]
         [Route("can-upload")]
-        public async Task<IActionResult> CanUploadVideo([FromForm] long videoSize)
+        public async Task<IActionResult> CanUploadVideo([FromForm] long videoSize, [FromForm] string fileName)
         {
-            return Ok(await _videoUploadService.CanUploadVideo(videoSize));
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdFromToken == null)
+            {
+                return Unauthorized("You are not logged in!");
+            }
+            bool response = await _videoUploadService.CanUploadVideo(videoSize);
+            if (response)
+            {
+                await _userVideoUploadRepositroy.AddUserVideoUpload(new UserVideoUpload
+                {
+                    UserId = userIdFromToken,
+                    VideoName = fileName,
+                });
+            }
+            return Ok(response);
         }
 
         [Authorize(Roles = "Verified,Admin")]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
-            if (chunk == null || chunk.Length == 0)
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdFromToken == null)
+            {
+                return Unauthorized("You are not logged in!");
+            }
+            if (string.IsNullOrEmpty(fileName) || chunkNumber < 0 || chunk == null)
             {
                 _logger.LogWarning("No chunk uploaded for file: {FileName}, chunk number: {ChunkNumber}", fileName, chunkNumber);
-                return BadRequest("No chunk uploaded.");
+                return BadRequest("Invalid file name or chunk number.");
             }
 
             _logger.LogInformation("Uploading chunk {ChunkNumber} for file: {FileName}", chunkNumber, fileName);
@@ -427,6 +448,9 @@ namespace OmegaStreamWebAPI.Controllers
             await using var imageStream = image?.OpenReadStream();
             await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userIdFromToken).ConfigureAwait(false);
             _logger.LogInformation("Successfully assembled file: {FileName}", fileName);
+
+            await _userVideoUploadRepositroy.RemoveUserVideoUploadByName(fileName);
+
             return Created("", new { message = "Video assembled successfully." });
         }
 

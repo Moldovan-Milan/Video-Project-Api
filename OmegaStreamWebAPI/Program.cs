@@ -15,6 +15,7 @@ using System.Runtime;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamWebAPI.Hubs;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using OmegaStreamWebAPI.BackgroundServices;
 
 namespace OmegaStreamWebAPI
 {
@@ -135,6 +136,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
             builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
             builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
+            builder.Services.AddSingleton<IUserVideoUploadRepositroy, UserVideoUploadRepository>();
 
 
             // Custom services
@@ -154,6 +156,9 @@ namespace OmegaStreamWebAPI
             builder.Services.AddSingleton<IRoomStateManager, RoomStateManager>();
 
             builder.Services.AddScoped<TokenGenerator>();
+
+            // Background services
+            builder.Services.AddHostedService<CheckExpiredVideoUploadTask>();
 
             // SingalR
             builder.Services.AddSignalR();

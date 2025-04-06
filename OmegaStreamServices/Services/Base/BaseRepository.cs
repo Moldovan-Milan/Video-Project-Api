@@ -30,10 +30,10 @@ namespace OmegaStreamServices.Services.Base
             await _context.SaveChangesAsync();
         }
 
-        public virtual void Delete(T entity)
+        public virtual async Task Delete(T entity)
         {
             _dbSet.Remove(entity);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         public virtual async Task<T> FindByIdAsync(int id)

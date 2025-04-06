@@ -24,7 +24,7 @@ namespace OmegaStreamServices.Services.Repositories
             return Task.CompletedTask;
         }
 
-        public override void Delete(RefreshToken entity)
+        public override async Task Delete(RefreshToken entity)
         {
             refreshTokens.Remove(entity);
         }

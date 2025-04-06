@@ -12,7 +12,7 @@ namespace OmegaStreamServices.Services.Base
         Task<List<T>> GetAll();
         Task<T> FindByIdAsync(int id);
         void Update(T entity);
-        void Delete(T entity);
+        Task Delete(T entity);
         Task DeleteMultipleAsync(List<T> entities);
     }
 }

@@ -53,7 +53,7 @@ namespace OmegaStreamServices.Services.Repositories
                 var subscribe = await GetByIdAsync(followerId, followedId);
                 if (subscribe != null)
                 {
-                    Delete(subscribe);
+                    await Delete(subscribe);
                 }
             }
         }
