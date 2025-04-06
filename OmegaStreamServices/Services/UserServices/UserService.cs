@@ -16,10 +16,11 @@ public class UserService : IUserService
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
-    private readonly IAvatarService _avatarService;
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
     private readonly IImageRepository _imageRepository;
+    private readonly IUserThemeRepository _userThemeRepository;
+    private readonly IImageService _imageService;
     private readonly IVideoManagementService _videoManagementService;
 
     private readonly IRefreshTokenRepository _refreshTokenRepository;
@@ -28,35 +29,36 @@ public class UserService : IUserService
     private readonly TokenGenerator _tokenGenerator;
 
 
-    public UserService(UserManager<User> userManager,
+    public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
         SignInManager<User> signInManager, IConfiguration configuration,
-        IAvatarService avatarService,
+
         IMapper mapper,
         AppDbContext context,
-        IImageRepository imageRepository,
+        IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService,
         IVideoManagementService videoManagementService,
-        ICloudService cloudService,
         TokenGenerator tokenGenerator, IRefreshTokenRepository refreshTokenRepository)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
-        _avatarService = avatarService;
         _mapper = mapper;
 
         _context = context;
 
         _imageRepository = imageRepository;
+        _userThemeRepository = userThemeRepository;
+        _cloudService = cloudService;
+        _imageService = imageService;
         _videoManagementService = videoManagementService;
 
-        _cloudService = cloudService;
         _tokenGenerator = tokenGenerator;
         _refreshTokenRepository = refreshTokenRepository;
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
-        string avatarFileName = await _avatarService.SaveAvatarAsync(avatar);
+
+        string avatarFileName = await _imageService.SaveImage("images/avatars", avatar);
         var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
         var user = new User
         {
@@ -99,7 +101,8 @@ public class UserService : IUserService
 
     public async Task<(Stream file, string contentType)> GetUserAvatarImage(int id)
     {
-        return await _avatarService.GetAvatarAsync(id);
+        return await _imageService.GetImageStreamByIdAsync("images/avatars", id);
+        //return await _avatarService.GetAvatarAsync(id);
     }
 
 
@@ -124,7 +127,7 @@ public class UserService : IUserService
 
     public async Task<User?> GetUserById(string id)
     {
-        return await _userManager.Users.Include(x => x.Followers).FirstOrDefaultAsync(
+        return await _userManager.Users.Include(x => x.Followers).Include(x => x.UserTheme).FirstOrDefaultAsync(
             x => x.Id == id);
     }
 
@@ -150,6 +153,7 @@ public class UserService : IUserService
         User? user = await _userManager.Users
             .Include(x => x.Videos)
             .Include(x => x.Followers)
+            .Include(x => x.UserTheme)
             .FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user != null)
@@ -198,6 +202,73 @@ public class UserService : IUserService
         return result.Succeeded;
     }
 
+    public async Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor, Stream? bannerImage, User user)
+    {
+        try
+        {
+            var userTheme = user.UserTheme != null
+                ? user.UserTheme
+                : new UserTheme();
+
+            if (background != "null")
+                userTheme.Background = background;
+
+            if (primaryColor != "null")
+                userTheme.PrimaryColor = primaryColor;
+
+            if (secondaryColor != "null")
+                userTheme.SecondaryColor = secondaryColor;
+
+            if (bannerImage != null)
+            {
+                if (userTheme.BannerId != null)
+                {
+                    var existingImage = await _imageRepository.FindByIdAsync(userTheme.BannerId.Value);
+                    if (existingImage != null)
+                    {
+                        if (!await _imageService.ReplaceImage("images/banner", existingImage.Path, bannerImage))
+                        {
+                            return false;
+                        }
+                    }
+                }
+                else
+                {
+                    string fileName = await SaveBanner(bannerImage);
+                    if (string.IsNullOrEmpty(fileName))
+                        return false;
+
+                    var image = await _imageRepository.FindImageByPath(fileName);
+                    if (image != null)
+                    {
+                        userTheme.BannerId = image.Id;
+                    }
+                }
+            }
+            _userThemeRepository.Update(userTheme);
+            user.UserTheme = userTheme;
+            await _userManager.UpdateAsync(user);
+
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            return false;
+        }
+    }
+
+
+    private async Task<string> SaveBanner(Stream bannerStream)
+    {
+        return await _imageService.SaveImage("images/banner", bannerStream);
+    }
+
+    public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
+    {
+        return await _imageService.GetImageStreamByIdAsync("images/banner", bannerId);
+    }
     public async Task DeleteAccount(string userId)
     {
         using (var transaction = await _context.Database.BeginTransactionAsync())

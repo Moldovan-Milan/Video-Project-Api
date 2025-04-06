@@ -17,14 +17,13 @@ namespace OmegaStreamServices.Models
         [Column("created")] 
         [Required] 
         public DateTime Created { get; set; }
+        public int? UserThemeId { get; set; }
+        [ForeignKey("UserThemeId")]
+        public UserTheme? UserTheme { get; set; }
 
         [Column("verification_requested")]
         [Required]
         public bool IsVerificationRequested { get; set; } = false;
-
-        //[Column("verified")]
-        //[Required]
-        //public bool Verified { get; set; }
 
         // Relationships
 
