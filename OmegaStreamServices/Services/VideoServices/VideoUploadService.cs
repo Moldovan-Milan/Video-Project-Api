@@ -176,7 +176,7 @@ namespace OmegaStreamServices.Services.VideoServices
             await Task.WhenAll(uploadTasks);
 
             // Ha minden megvan, akkor kitörli a mappát, amiben a .mp4 és .ts fájlok voltak
-            FileManager.DeleteDirectory($"temp/{folderName}");
+            FileManager.DeleteDirectory($"{AppContext.BaseDirectory}/temp/{folderName}");
         }
 
         private async Task AssembleAndSaveVideo(string path, string fileName, string tempPath, int totalChunkCount)
@@ -238,6 +238,28 @@ namespace OmegaStreamServices.Services.VideoServices
                 Console.WriteLine($"Error happened: {ex.Message}");
             }
             return (0, 0, TimeSpan.Zero);
+        }
+
+        public async Task<bool> CanUploadVideo(long fileSize)
+        {
+            long totalSize = await _cloudServices.GetBucketFileSizeSum();
+            string? bucketMaxSize = _configuration["CloudService:MaxBucketSize"];
+            long maxSize;
+
+            if (bucketMaxSize != null)
+            {
+                maxSize = long.Parse(bucketMaxSize);
+            }
+            else
+            {
+                maxSize = 10737418240; // 10 GB
+            }
+
+            if (totalSize + fileSize > maxSize)
+            {
+                return false;
+            }
+            return true;
         }
     }
 }

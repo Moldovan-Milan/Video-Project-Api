@@ -388,6 +388,14 @@ namespace OmegaStreamWebAPI.Controllers
         #region Video Upload
 
         [Authorize(Roles = "Verified,Admin")]
+        [HttpPost]
+        [Route("can-upload")]
+        public async Task<IActionResult> CanUploadVideo([FromForm] long videoSize)
+        {
+            return Ok(await _videoUploadService.CanUploadVideo(videoSize));
+        }
+
+        [Authorize(Roles = "Verified,Admin")]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
