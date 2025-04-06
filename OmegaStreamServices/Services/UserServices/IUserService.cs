@@ -17,6 +17,7 @@ namespace OmegaStreamServices.Services.UserServices
                 /// <param name="refreshToken">The value of the refresh token</param>
                 /// <returns>Null if the token expired or not exist otherwise a new refresh token</returns>
                 Task<(string? newRefreshToken, User? user)> LogInWithRefreshToken(string refreshToken);
+                Task<List<User>> GetUsersAsync(int? pageNumber, int? pageSize);
                 Task<User?> GetUserById(string id);
                 Task<User?> GetUserWithFollowersById(string id);
                 Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);
@@ -28,5 +29,10 @@ namespace OmegaStreamServices.Services.UserServices
                 Task<(Stream file, string contentType)> GetBannerAsync(int avatarId);
                 Task DeleteAccount(string userId);
                 Task<List<string>> GetRoles(string userId);
-        }
+                Task VerifyUser(string userId);
+                Task AddVerificationRequest(string userId);
+                Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize);
+                Task DeclineVerification(string userId);
+                Task<bool> HasActiveVerificationRequest(string userId);
+    }
 }

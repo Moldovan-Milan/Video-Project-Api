@@ -387,7 +387,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         #region Video Upload
 
-        [Authorize]
+        [Authorize(Roles = "Verified,Admin")]
         [HttpPost("upload")]
         public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileName, [FromForm] int chunkNumber)
         {
@@ -404,7 +404,7 @@ namespace OmegaStreamWebAPI.Controllers
             return Created("", new { message = "Chunk uploaded successfully." });
         }
 
-        [Authorize]
+        [Authorize(Roles = "Verified,Admin")]
         [HttpPost("assemble")]
         public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile? image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension)
         {

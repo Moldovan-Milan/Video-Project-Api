@@ -29,6 +29,44 @@ namespace OmegaStreamWebAPI.Controllers
             _imageService = imageService;
         }
 
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetUser(string userId)
+        {
+            try
+            {
+                User user = await _userService.GetUserById(userId);
+                if (user == null)
+                {
+                    return NotFound($"Couldn't find user with id: {userId}");
+                }
+                return Ok(_mapper.Map<UserDto>(user));
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "user/id");
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            try
+            {
+                var users = await _userService.GetUsersAsync(pageNumber, pageSize);
+                bool hasMore = users.Count == pageSize;
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+                return Ok(new
+                {
+                    users = userDtos,
+                    hasMore = hasMore
+                });
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "all-users");
+            }
+        }
+
         [Route("register")]
         [HttpPost]
         public async Task<IActionResult> Register([FromForm] string username, [FromForm] string email, [FromForm] string password, [FromForm] IFormFile avatar)
@@ -242,7 +280,6 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(response);
         }
 
-
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> SearchUser(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
@@ -266,7 +303,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Authorize]
         [Route("profile/update-username")]
-        [HttpPost]
+        [HttpPatch]
         public async Task<IActionResult> UpdateUsername([FromQuery] string newName)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -364,10 +401,43 @@ namespace OmegaStreamWebAPI.Controllers
 
         }
 
-        [Route("get-roles")]
+        [Route("get-roles/{userId}")]
         [Authorize]
         [HttpGet]
-        public async Task<IActionResult> GetRoles()
+        public async Task<IActionResult> GetRoles([FromRoute] string? userId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if (userId == null)
+                {
+                    if (userIdFromToken == null)
+                    {
+                        return Forbid("You are not logged in!");
+                    }
+                }
+                if(userId == userIdFromToken)
+                {
+                    return Ok(roles);
+                }
+                if (!roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized!");
+                }
+                var userRoles = await _userService.GetRoles(userId);
+                return Ok(userRoles);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "get-roles");
+            }
+        }
+
+        [Route("request-verification")]
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> RequestVerification()
         {
             try
             {
@@ -377,11 +447,55 @@ namespace OmegaStreamWebAPI.Controllers
                     return Unauthorized("You are not logged in!");
                 }
                 var roles = await _userService.GetRoles(userIdFromToken);
-                return Ok(roles);
+                var user = await _userService.GetUserById(userIdFromToken);
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("You are already verified!");
+                }
+
+                if(user.IsVerificationRequested)
+                {
+                    return Conflict("Verification request already submitted!");
+                }
+
+                await _userService.AddVerificationRequest(userIdFromToken);
+
+                return Ok("Verification request submitted successfully.");
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                return HandleException(ex, "get-roles");
+                return HandleException(ex, "request-verification");
+            }
+        }
+
+        [Route("{userId}/verification-request/active")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> CheckForVerificationRequest([FromRoute] string userId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if (userIdFromToken != userId && !roles.Contains("Admin"))
+                {
+                    return Forbid("You are not authorized to access this information");
+                }
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("This user is already verified");
+                }
+                bool hasVerificationRequest = await _userService.HasActiveVerificationRequest(userId);
+                return Ok(hasVerificationRequest);
+            }
+            catch(Exception ex)
+            {
+                return HandleException(ex, "verification-request/active");
             }
         }
 

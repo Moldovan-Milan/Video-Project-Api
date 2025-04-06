@@ -107,6 +107,24 @@ public class UserService : IUserService
 
 
 
+    public async Task<List<User>> GetUsersAsync(int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        return await _userManager.Users
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToListAsync();
+    }
+
     public async Task<User?> GetUserById(string id)
     {
         return await _userManager.Users.Include(x => x.Followers).Include(x => x.UserTheme).FirstOrDefaultAsync(
@@ -359,5 +377,66 @@ public class UserService : IUserService
         return token.ExpiryDate > DateTime.UtcNow;
     }
 
+    public async Task VerifyUser(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        await _userManager.AddToRoleAsync(user, "Verified");
+        user.IsVerificationRequested = false;
+        await _context.SaveChangesAsync();
+    }
 
+    public async Task DeclineVerification(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        user.IsVerificationRequested = false;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task AddVerificationRequest(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        user.IsVerificationRequested = true;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize)
+    {
+        pageNumber = pageNumber ?? 1;
+        pageSize = pageSize ?? 30;
+        if (pageNumber <= 0)
+        {
+            pageNumber = 1;
+        }
+        if (pageSize <= 0)
+        {
+            pageSize = 30;
+        }
+        var users = await _context.Users
+            .Where(u => u.IsVerificationRequested)
+            .Skip((pageNumber.Value - 1) * pageSize.Value)
+            .Take(pageSize.Value)
+            .ToListAsync();
+        return _mapper.Map<List<UserDto>>(users);
+    }
+    public async Task<bool> HasActiveVerificationRequest(string userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            throw new Exception("User not found");
+        }
+        return user.IsVerificationRequested;
+    }
 }
