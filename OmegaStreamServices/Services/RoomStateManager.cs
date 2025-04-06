@@ -295,5 +295,27 @@ namespace OmegaStreamServices.Services
         {
             return RoomStates.Values.Any(room => room.Members.Any(member => member.Id == userId));
         }
+
+        public bool RemoveUserByUserId(string userId, out string? roomId, out List<User>? members)
+        {
+            roomId = null;
+            members = null;
+
+            foreach (var room in RoomStates)
+            {
+                if (room.Value.Members.Any(x => x.Id == userId))
+                {
+                    roomId = room.Key;
+                    members = room.Value.Members;
+                    var user = room.Value.Members.FirstOrDefault(x => x.Id == userId);
+                    if (user != null)
+                    {
+                        room.Value.Members.Remove(user);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 }

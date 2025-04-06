@@ -161,7 +161,21 @@ namespace OmegaStreamWebAPI
             builder.Services.AddHostedService<CheckExpiredVideoUploadTask>();
 
             // SingalR
-            builder.Services.AddSignalR();
+            builder.Services.AddSignalR()
+                .AddHubOptions<ChatHub>(options =>
+                {
+                    options.KeepAliveInterval = TimeSpan.FromSeconds(30);
+                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+                })
+                .AddHubOptions<WatchTogetherHub>(options =>
+                {
+                    options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+                });
+
+            builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Debug);
+            builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Connections", LogLevel.Debug);
+
 
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 

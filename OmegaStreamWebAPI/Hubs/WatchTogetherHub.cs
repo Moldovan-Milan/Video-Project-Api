@@ -7,6 +7,7 @@ using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services.UserServices;
 using System.Collections.Concurrent;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Hubs
 {
@@ -141,6 +142,7 @@ namespace OmegaStreamWebAPI.Hubs
                     await SendErrorMessage(Context.ConnectionId, "Failed to leave room");
                     break;
             }
+            Context.Abort();
         }
 
         public async Task SyncVideoState(string roomId, double currentTime, bool isPlaying)
@@ -267,5 +269,24 @@ namespace OmegaStreamWebAPI.Hubs
             await Clients.Clients(connectionId).SendAsync("Error", message);
         }
 
+        public override Task OnDisconnectedAsync(Exception? exception)
+        {
+            string? userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId == null)
+            {
+                return base.OnDisconnectedAsync(exception);
+            }
+
+            if (_roomManager.RemoveUserByUserId(userId, out string? roomId, out List<User>? members))
+            {
+                if (roomId != null)
+                {
+                    Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+                }
+            }
+
+            return base.OnDisconnectedAsync(exception);
+        }
     }
 }
