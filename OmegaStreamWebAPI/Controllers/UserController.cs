@@ -416,6 +416,9 @@ namespace OmegaStreamWebAPI.Controllers
                     {
                         return Forbid("You are not logged in!");
                     }
+                }
+                if(userId == userIdFromToken)
+                {
                     return Ok(roles);
                 }
                 if (!roles.Contains("Admin"))
