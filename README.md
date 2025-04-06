@@ -11,7 +11,7 @@ Frontend repository: [Video Project Frontend](https://github.com/Moldovan-Milan/
 - ✅ User Authentication
 - ✅ User Registration
 - 📝 User Email Verification (Planned)
-- 🚧 User Profile Editing (In Progress)
+- ✅ User Profile Editing
 - ✅ User Profile Deletion
 
 ### ✅ Video Management
