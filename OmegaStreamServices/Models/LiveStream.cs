@@ -18,6 +18,7 @@ namespace OmegaStreamServices.Models
         public string Description { get; set; }
         public int Viewers { get; set; }
         public List<RoomMessage> Messages { get; set; } = new();
+        public List<string> ViewersConnectionIds { get; set; } = new();
 
         [ForeignKey("UserId")]
         public virtual User User { get; set; }

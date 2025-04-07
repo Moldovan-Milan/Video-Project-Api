@@ -12,5 +12,6 @@ namespace OmegaStreamServices.Services.Repositories
         Task UpdateLiveStreamAsync(LiveStream liveStream);
         Task<IEnumerable<LiveStream>> GetAllLiveStreamsAsync();
         Task RemoveLiveStreamAsync(string streamId);
+        Task<LiveStream?> GetLiveStreamByConnectionIdAsync(string connectionId);
     }
 }

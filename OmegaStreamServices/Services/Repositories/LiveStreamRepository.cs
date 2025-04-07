@@ -47,4 +47,10 @@ public class LiveStreamRepository : ILiveStreamRepository
         _liveStreams.TryRemove(streamId, out _);
         return Task.CompletedTask;
     }
+
+    public Task<LiveStream?> GetLiveStreamByConnectionIdAsync(string connectionId)
+    {
+        LiveStream? liveStream = _liveStreams.Values.FirstOrDefault(x => x.StreamerConnectionId == connectionId || x.ViewersConnectionIds.Contains(connectionId));
+        return Task.FromResult(liveStream);
+    }
 }

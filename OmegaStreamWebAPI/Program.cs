@@ -163,21 +163,21 @@ namespace OmegaStreamWebAPI
             builder.Services.AddHostedService<CheckExpiredVideoUploadTask>();
 
             // SingalR
-            builder.Services.AddSignalR()
-                .AddHubOptions<ChatHub>(options =>
-                {
-                    options.KeepAliveInterval = TimeSpan.FromSeconds(30);
-                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
-                })
-                .AddHubOptions<WatchTogetherHub>(options =>
-                {
-                    options.KeepAliveInterval = TimeSpan.FromSeconds(10);
-                    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-                });
+            //builder.Services.AddSignalR()
+            //    .AddHubOptions<ChatHub>(options =>
+            //    {
+            //        options.KeepAliveInterval = TimeSpan.FromSeconds(30);
+            //        options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+            //    })
+            //    .AddHubOptions<WatchTogetherHub>(options =>
+            //    {
+            //        options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+            //        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+            //    });
 
-            builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Debug);
-            builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Connections", LogLevel.Debug);
-
+            //builder.Logging.AddFilter("Microsoft.AspNetCore.SignalR", LogLevel.Debug);
+            //builder.Logging.AddFilter("Microsoft.AspNetCore.Http.Connections", LogLevel.Debug);
+            builder.Services.AddSignalR();
 
             builder.Services.AddSingleton<IEncryptionHelper, EncryptionHelper>();
 
@@ -192,7 +192,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
-                    builder => builder.WithOrigins("https://localhost:5173", "http://localhost:8081", "http://192.168.1.72:8081")
+                    builder => builder.WithOrigins("https://localhost:5173", "https://192.168.1.72:5173", "http://localhost:8081", "http://192.168.1.72:8081")
                                       .AllowAnyMethod()
                                       .AllowAnyHeader()
                                       .AllowCredentials());

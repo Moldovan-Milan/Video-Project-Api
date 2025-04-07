@@ -22,6 +22,7 @@ namespace OmegaStreamWebAPI.Hubs
             _mapper = mapper;
         }
 
+        [Authorize]
         public async Task StartStream(string userId, string title, string? desc)
         {
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(title))
@@ -55,6 +56,7 @@ namespace OmegaStreamWebAPI.Hubs
             Console.WriteLine($"Stream started: {liveStreamId}, Streamer: {Context.ConnectionId}");
         }
 
+        [Authorize]
         public async Task StopStream(string userId)
         {
             LiveStream? liveStream = await _liveStreamRepository.GetLiveStreamByUserIdAsync(userId);
@@ -69,6 +71,7 @@ namespace OmegaStreamWebAPI.Hubs
             Console.WriteLine($"Stream stopped: {liveStream.Id}");
         }
 
+        [AllowAnonymous]
         public async Task WatchStream(string streamId)
         {
             LiveStream? liveStream = await _liveStreamRepository.GetLiveStreamByIdAsync(streamId);
@@ -82,9 +85,11 @@ namespace OmegaStreamWebAPI.Hubs
             await Clients.Caller.SendAsync("ReceiveChatHistory", liveStream.Messages);
             await Clients.Clients(liveStream.StreamerConnectionId).SendAsync("ReceiveViewer", Context.ConnectionId);
             liveStream.Viewers++;
+            liveStream.ViewersConnectionIds.Add(Context.ConnectionId);
             await Clients.Groups(liveStream.Id).SendAsync("ViewerCountChanged", liveStream.Viewers);
         }
 
+        [AllowAnonymous]
         public async Task LeaveStream(string streamId)
         {
             LiveStream? liveStream = await _liveStreamRepository.GetLiveStreamByIdAsync(streamId);
@@ -95,10 +100,12 @@ namespace OmegaStreamWebAPI.Hubs
             }
             await Clients.Client(liveStream.StreamerConnectionId).SendAsync("ViewerLeftStream", Context.ConnectionId);
             liveStream.Viewers--;
+            liveStream.ViewersConnectionIds.Remove(Context.ConnectionId);
             await Clients.Groups(liveStream.Id).SendAsync("ViewerCountChanged", liveStream.Viewers);
             //Context.Abort();
         }
 
+        [Authorize]
         public async Task SendMessage(string userId, string message, string streamId)
         {
             User? user = await _userManager.FindByIdAsync(userId);
@@ -127,16 +134,19 @@ namespace OmegaStreamWebAPI.Hubs
 
         #region WebRTC
 
+        [AllowAnonymous]
         public async Task SendOffer(string connectionId, string offer)
         {
             await Clients.Client(connectionId).SendAsync("ReceiveOffer", offer, Context.ConnectionId);
         }
 
+        [AllowAnonymous]
         public async Task SendAnswer(string connectionId, string answer)
         {
             await Clients.Client(connectionId).SendAsync("ReceiveAnswer", answer, Context.ConnectionId);
         }
 
+        [AllowAnonymous]
         public async Task SendIceCandidate(string connectionId, string candidate)
         {
             await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", candidate, Context.ConnectionId);
@@ -144,9 +154,36 @@ namespace OmegaStreamWebAPI.Hubs
 
         public override Task OnDisconnectedAsync(Exception? exception)
         {
-            var userIdFromToken = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            Console.WriteLine(userIdFromToken);
-            Console.WriteLine("Disconected");
+            string? userIdFromToken = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken != null)
+            {
+                // User is authenticated, handle disconnection
+                LiveStream? liveStream = _liveStreamRepository.GetLiveStreamByUserIdAsync(userIdFromToken).Result;
+                if (liveStream != null)
+                {
+                    // User is a streamer, handle streamer disconnection
+                    liveStream.EndedAt = DateTime.UtcNow;
+                    _liveStreamRepository.UpdateLiveStreamAsync(liveStream).Wait();
+                    Clients.Group(liveStream.Id).SendAsync("StreamStopped").Wait();
+                    _liveStreamRepository.RemoveLiveStreamAsync(liveStream.Id).Wait();
+                    Console.WriteLine($"Streamer disconnected: {liveStream.Id}");
+                }
+                else
+                {
+                    // User is a viewer, handle viewer disconnection
+                    liveStream = _liveStreamRepository.GetLiveStreamByConnectionIdAsync(Context.ConnectionId).Result;
+                    if (liveStream != null)
+                    {
+                        liveStream.Viewers--;
+                        liveStream.ViewersConnectionIds.Remove(Context.ConnectionId);
+                        _liveStreamRepository.UpdateLiveStreamAsync(liveStream).Wait();
+                        Clients.Group(liveStream.Id).SendAsync("ViewerCountChanged", liveStream.Viewers).Wait();
+                        Clients.Client(liveStream.StreamerConnectionId).SendAsync("ViewerLeftStream", Context.ConnectionId).Wait();
+                        Console.WriteLine($"Viewer disconnected: {liveStream.Id}");
+                    }
+                }
+            }
 
             return base.OnDisconnectedAsync(exception);
         }
