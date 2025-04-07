@@ -380,6 +380,10 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound();
                 }
+                if(user.Email == "admin@omegastream.com")
+                {
+                    return Forbid("You cannot delete the admin account!");
+                }
                 await _userService.DeleteAccount(userIdFromToken);
                 var cookieOptions = new CookieOptions
                 {
