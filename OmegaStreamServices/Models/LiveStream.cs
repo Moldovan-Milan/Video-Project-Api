@@ -16,7 +16,6 @@ namespace OmegaStreamServices.Models
         public DateTime? EndedAt { get; set; }
         public string StreamTitle { get; set; }
         public string Description { get; set; }
-        public int Viewers { get; set; }
         public List<RoomMessage> Messages { get; set; } = new();
         public List<string> ViewersConnectionIds { get; set; } = new();
 

@@ -14,6 +14,7 @@ namespace OmegaStreamServices.Dto
         public DateTime? EndedAt { get; set; }
         public string StreamTitle { get; set; }
         public string Description { get; set; }
+        public int Viewers { get; set; }
     }
 
 }
