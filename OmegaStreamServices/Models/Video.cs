@@ -47,6 +47,9 @@ namespace OmegaStreamServices.Models
         [Column("views")]
         [Required]
         public long Views { get; set; } = 0;
+
+        [Column("is_short")]
+        public bool IsShort { get; set; }
         
         // Relationships
 

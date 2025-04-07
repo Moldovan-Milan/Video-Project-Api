@@ -25,7 +25,7 @@ namespace OmegaStreamServices.Services.VideoServices
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize)
+        public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize, bool isShorts)
         {
             pageNumber = pageNumber ?? 1;
             pageSize = pageSize ?? 30;
@@ -37,20 +37,28 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 pageSize = 30;
             }
-            var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value);
+            var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value, isShorts);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
 
         public async Task<VideoDto?> GetVideoMetaData(int id)
         {
-            Video video = await _videoRepository.GetVideoWithInclude(id);
-            VideoDto videoDto = _mapper.Map<VideoDto>(video);
-            videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
-            videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
-            videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
-            return videoDto;
+            try
+            {
+                Video video = await _videoRepository.GetVideoWithInclude(id);
+                VideoDto videoDto = _mapper.Map<VideoDto>(video);
+                videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
+                videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
+                videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
+                return videoDto;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
         }
-        public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize)
+
+        public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize, bool isShorts)
         {
             pageNumber = pageNumber ?? 1;
             pageSize = pageSize ?? 30;
@@ -62,7 +70,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 pageSize = 30;
             }
-            var videos = await _videoRepository.GetVideosByName(name, pageNumber.Value, pageSize.Value);
+            var videos = await _videoRepository.GetVideosByName(name, pageNumber.Value, pageSize.Value, isShorts);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
     }

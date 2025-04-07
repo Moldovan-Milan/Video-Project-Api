@@ -5,46 +5,100 @@ using OmegaStreamServices.Services.Base;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Services.Repositories
 {
     public class VideoRepository : BaseRepository<Video>, IVideoRepository
     {
+        private readonly Random random;
+
         public VideoRepository(AppDbContext context) : base(context)
         {
+            random = new Random();
         }
 
-        public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize)
+        public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize, bool isShorts)
         {
-            var videos = await _dbSet
+            return await Task.FromResult(_dbSet
+                .Where(x => x.IsShort == isShorts)
                 .Include(v => v.User)
                 .Include(v => v.Thumbnail)
+                .Include(v => v.Comments)
+                .Include(v => v.VideoLikes)
+                .AsEnumerable() // Exit from sql query
+                .OrderByDescending(v => CalculateScore(
+                    v.Views,
+                    v.VideoLikes.Count(l => !l.IsDislike),
+                    v.VideoLikes.Count(l => l.IsDislike),
+                    v.Comments.Count,
+                    (DateTime.UtcNow - v.Created).TotalDays,
+                    (DateTime.UtcNow - v.Created).TotalHours))
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync();
-            return videos;
+                .ToList());
         }
 
-        public Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize)
+        public async Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize, bool isShorts)
         {
             name = name.ToLower();
-            return _dbSet
-                .Where(x => x.Title.ToLower().Contains(name))
-                .Include(x => x.User)
-                .Include(x => x.Thumbnail)
+            return await Task.FromResult(_dbSet
+                .Where(v => v.Title.ToLower().Contains(name) && v.IsShort == isShorts)
+                .Include(v => v.User)
+                .Include(v => v.Thumbnail)
+                .Include(v => v.Comments)
+                .Include(v => v.VideoLikes)
+                .AsEnumerable() // Exit from sql query
+                .OrderByDescending(v => CalculateScore(
+                    v.Views,
+                    v.VideoLikes.Count(l => !l.IsDislike),
+                    v.VideoLikes.Count(l => l.IsDislike),
+                    v.Comments.Count,
+                    (DateTime.UtcNow - v.Created).TotalDays,
+                    (DateTime.UtcNow - v.Created).TotalHours))
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .ToListAsync();
+                .ToList());
         }
 
-        public async Task<Video> GetVideoWithInclude(int id)
+        public async Task<Video?> GetVideoWithInclude(int id)
         {
-            Video video = await _dbSet.Include(v => v.User).Include(v => v.Thumbnail)
-                .Include(x => x.Comments).ThenInclude(x => x.User)
-                .FirstOrDefaultAsync(v => v.Id == id)!;
-            return video;
+            return await _dbSet
+                .Include(v => v.User)
+                .Include(v => v.Thumbnail)
+                .Include(v => v.Comments)
+                    .ThenInclude(c => c.User)
+                .FirstOrDefaultAsync(v => v.Id == id);
+        }
+
+        public async Task DeleteVideoWithRelationsAsync(Video video)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _dbSet.Remove(video);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private double CalculateScore(long V, int L, int D, int C, double time, double hours)
+        {
+            double safeTime = Math.Max(time, 1);
+            double score = ((V + 100) * 1.5 + L * 2 - D * 2 + C * 0.5)
+                           / (2 + Math.Pow(safeTime, 0.2));
+
+            if (hours < 1)
+                score *= 2;
+            if (random.Next(0, 99) == 0) // 1% chance to increase the points by 10x
+                score *= 10;
+
+            return score;
         }
     }
 }

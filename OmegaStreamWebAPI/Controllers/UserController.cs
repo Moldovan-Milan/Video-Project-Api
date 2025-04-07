@@ -1,13 +1,13 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using OmegaStreamServices.Services.UserServices;
+using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services;
 using System.Security.Claims;
-using OmegaStreamServices.Dto;
 using AutoMapper;
+using OmegaStreamServices.Services.UserServices;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -16,16 +16,55 @@ namespace OmegaStreamWebAPI.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
-        private IAvatarService _avatarService;
+        private readonly IImageService _imageService;
         private readonly IMapper _mapper;
-       
+
+
 
         public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
-            IMapper mapper, IAvatarService avatarService)
+            IMapper mapper, IImageService imageService)
         {
             _userService = userManagerService;
             _mapper = mapper;
-            _avatarService = avatarService;
+            _imageService = imageService;
+        }
+
+        [HttpGet("{userId}")]
+        public async Task<IActionResult> GetUser(string userId)
+        {
+            try
+            {
+                User user = await _userService.GetUserById(userId);
+                if (user == null)
+                {
+                    return NotFound($"Couldn't find user with id: {userId}");
+                }
+                return Ok(_mapper.Map<UserDto>(user));
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "user/id");
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
+        {
+            try
+            {
+                var users = await _userService.GetUsersAsync(pageNumber, pageSize);
+                bool hasMore = users.Count == pageSize;
+                var userDtos = _mapper.Map<List<UserDto>>(users);
+                return Ok(new
+                {
+                    users = userDtos,
+                    hasMore = hasMore
+                });
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "all-users");
+            }
         }
 
         [Route("register")]
@@ -45,36 +84,66 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Route("login")]
         [HttpPost]
-        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, 
-            [FromForm] bool rememberMe)
+        public async Task<IActionResult> Login([FromForm] string email, [FromForm] string password, [FromForm] bool rememberMe)
         {
-            var (token, refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
-            if (token == null)
-                return Unauthorized("Invalid email or password.");
-            UserDto userDto = _mapper.Map<User, UserDto>(user);
-            if (rememberMe)
+            var (refreshToken, user) = await _userService.LoginUser(email, password, rememberMe);
+
+            if (user == null)
             {
-                return Ok(new {token, refreshToken, userDto});
+                return Unauthorized("Invalid email or password.");
             }
-            
-            return Ok(new {token, userDto});
+
+            UserDto userDto = _mapper.Map<User, UserDto>(user);
+
+            if (refreshToken != null)
+            {
+                var refreshTokenCookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(1),
+                };
+                Response.Cookies.Append("RefreshToken", refreshToken, refreshTokenCookieOptions);
+            }
+
+            return Ok(new { userDto });
         }
 
+
         [Route("refresh-jwt-token")]
-        [HttpPost]
-        public async Task<IActionResult> RefreshJwtToken([FromForm] string refreshToken)
+        [HttpGet]
+        public async Task<IActionResult> RefreshJwtToken()
         {
-            if (refreshToken == null)
+            var refreshToken = Request.Cookies["RefreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
             {
-                return BadRequest("Refresh token is null");
+                return BadRequest("Refresh token is missing.");
             }
-            var (newToken, user) = await _userService.GenerateJwtWithRefreshToken(refreshToken);
-            if (newToken == null)
+
+            var (newRefreshToken, user) = await _userService.LogInWithRefreshToken(refreshToken);
+
+            if (newRefreshToken == null || user == null)
             {
-                return Forbid();
+                Response.Cookies.Delete("RefreshToken");
+                return Unauthorized();
             }
-            UserDto userDto = _mapper.Map<UserDto>(user);
-            return Ok(new { newToken, userDto});
+
+            var refreshTokenCookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(1)
+            };
+
+
+            Response.Cookies.Append("RefreshToken", newRefreshToken, refreshTokenCookieOptions);
+
+            var userRoles = await _userService.GetRoles(user.Id);
+
+            return Ok(new { user = _mapper.Map<UserDto>(user), roles = userRoles });
         }
 
         [Route("logout")]
@@ -82,25 +151,53 @@ namespace OmegaStreamWebAPI.Controllers
         public async Task<IActionResult> Logout()
         {
             await _userService.LogoutUser();
-            return Ok();
+
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTimeOffset.UtcNow.AddDays(-1)
+            };
+
+            Response.Cookies.Append("AccessToken", "", cookieOptions);
+            Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+            return Ok("Logged out successfully.");
         }
 
         [Route("profile")]
         [HttpGet]
         [Authorize]
         // TODO: Profilszerkesztéshez esetleg plusz adatotak is elküldeni
-        public async Task<IActionResult> Profile()
+        public async Task<IActionResult> Profile([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (userIdFromToken == null)
             {
-                return Forbid("You are not logged in!");
+                return Unauthorized("You are not logged in!");
             }
 
-            User user = await _userService.GetUserById(userIdFromToken);
+            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
 
-            return user == null ? NotFound() : Ok(_mapper.Map<UserDto>(user));
+            return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
+        }
+
+        [HttpGet]
+        [Route("banner/{id}")]
+        public async Task<IActionResult> GetBannerImage(int id)
+        {
+            try
+            {
+                (Stream file, string extension) = await _userService.GetBannerAsync(id);
+                return File(file, extension);
+
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [Route("profile/{id}")]
@@ -110,10 +207,10 @@ namespace OmegaStreamWebAPI.Controllers
             UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
             bool hasMore = user.Videos.Count == pageSize;
 
-            return user == null ? NotFound() : Ok(new 
-            { 
-                user = user,
-                hasMore = hasMore 
+            return user == null ? NotFound() : Ok(new
+            {
+                user = _mapper.Map<UserWithVideosDto>(user),
+                hasMore = hasMore
             });
         }
 
@@ -123,11 +220,12 @@ namespace OmegaStreamWebAPI.Controllers
         {
             try
             {
-                (Stream file, string extension) = await _avatarService.GetAvatarAsync(id);
+                (Stream file, string extension) = await _imageService.GetImageStreamByIdAsync("images/avatars", id);
                 return File(file, extension);
 
             }
-            catch (Exception ex){
+            catch (Exception ex)
+            {
                 return BadRequest(ex.Message);
             }
         }
@@ -182,7 +280,6 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(response);
         }
 
-
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> SearchUser(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
@@ -204,10 +301,211 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
+        [Authorize]
+        [Route("profile/update-username")]
+        [HttpPatch]
+        public async Task<IActionResult> UpdateUsername([FromQuery] string newName)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken == null)
+            {
+                return Unauthorized("You are not logged in!");
+            }
+
+            User user = await _userService.GetUserById(userIdFromToken);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            await _userService.UpdateUsername(user, newName);
+
+            return Ok(_mapper.Map<UserDto>(user));
+
+        }
+
+        [Authorize]
+        [HttpPost]
+        [Route("profile/set-theme")]
+        public async Task<IActionResult> SetTheme([FromForm] string? background, [FromForm] string? primaryColor, [FromForm] string? secondaryColor,
+            [FromForm] IFormFile? bannerImage)
+        {
+            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (userIdFromToken == null)
+            {
+                return Forbid("You are not logged in!");
+            }
+
+            User? user = await _userService.GetUserById(userIdFromToken);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            bool result;
+            if (bannerImage == null)
+            {
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, null, user);
+            }
+            else
+            {
+                result = await _userService.SaveTheme(background, primaryColor, secondaryColor, bannerImage.OpenReadStream(), user);
+            }
+
+            if (!result)
+            {
+                return BadRequest("An error happened!");
+            }
+            return Ok();
+        }
+
+        [Authorize]
+        [Route("profile/delete-account")]
+        [HttpDelete]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+                User user = await _userService.GetUserById(userIdFromToken);
+                if (user == null)
+                {
+                    return NotFound();
+                }
+                if (user.Email == "admin@omegastream.com")
+                {
+                    return Forbid("You cannot delete the admin account!");
+                }
+                await _userService.DeleteAccount(userIdFromToken);
+                var cookieOptions = new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = DateTimeOffset.UtcNow.AddDays(-1)
+                };
+
+                Response.Cookies.Append("AccessToken", "", cookieOptions);
+                Response.Cookies.Append("RefreshToken", "", cookieOptions);
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "delete-account");
+            }
+
+        }
+
+        [Route("get-roles/{userId}")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> GetRoles([FromRoute] string? userId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if (userId == null)
+                {
+                    if (userIdFromToken == null)
+                    {
+                        return Forbid("You are not logged in!");
+                    }
+                }
+                if (userId == userIdFromToken)
+                {
+                    return Ok(roles);
+                }
+                if (!roles.Contains("Admin"))
+                {
+                    return Unauthorized("You are not authorized!");
+                }
+                var userRoles = await _userService.GetRoles(userId);
+                return Ok(userRoles);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "get-roles");
+            }
+        }
+
+        [Route("request-verification")]
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> RequestVerification()
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                var user = await _userService.GetUserById(userIdFromToken);
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("You are already verified!");
+                }
+
+                if (user.IsVerificationRequested)
+                {
+                    return Conflict("Verification request already submitted!");
+                }
+
+                await _userService.AddVerificationRequest(userIdFromToken);
+
+                return Ok("Verification request submitted successfully.");
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "request-verification");
+            }
+        }
+
+        [Route("{userId}/verification-request/active")]
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> CheckForVerificationRequest([FromRoute] string userId)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (userIdFromToken == null)
+                {
+                    return Forbid("You are not logged in!");
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if (userIdFromToken != userId && !roles.Contains("Admin"))
+                {
+                    return Forbid("You are not authorized to access this information");
+                }
+                if (roles.Contains("Verified"))
+                {
+                    return Conflict("This user is already verified");
+                }
+                bool hasVerificationRequest = await _userService.HasActiveVerificationRequest(userId);
+                return Ok(hasVerificationRequest);
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "verification-request/active");
+            }
+        }
+
         private IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }
     }
 }
-

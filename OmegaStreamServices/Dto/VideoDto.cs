@@ -40,5 +40,6 @@ namespace OmegaStreamServices.Dto
 
         public ICollection<CommentDto> Comments { get; set; }
         public long Views { get; set; }
+        public bool IsShort { get; set; }
     }
 }

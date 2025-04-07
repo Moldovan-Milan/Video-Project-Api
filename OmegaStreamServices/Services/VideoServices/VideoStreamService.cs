@@ -12,16 +12,23 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoStreamService : IVideoStreamService
     {
-        private const string ImagesFolder = "images/thumbnails";
-        private const string VideosFolder = "videos";
+        private readonly string thumbmailFolder;
+        private readonly string videosFolder;
 
         private readonly ICloudService _cloudServices;
         private readonly IImageRepository _imageRepository;
+        private readonly IConfiguration _configuration;
 
-        public VideoStreamService(ICloudService cloudServices, IImageRepository imageRepository)
+        public VideoStreamService(ICloudService cloudServices, IImageRepository imageRepository, IConfiguration configuration)
         {
             _cloudServices = cloudServices;
             _imageRepository = imageRepository;
+            _configuration = configuration;
+
+            videosFolder = _configuration["CloudService:VideoPath"] 
+                ?? throw new InvalidOperationException("CloudService:VideoPath configuration is missing.");
+            thumbmailFolder = _configuration["CloudService:ThumbnailPath"]
+                ?? throw new InvalidOperationException("CloudService:ThumbnailPath configuration is missing.");
         }
 
         public async Task<(Stream fileStream, string contentType)> GetFileStreamAsync(string folder, string fileName)
@@ -33,19 +40,19 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             Image image = await _imageRepository.FindByIdAsync(imageId);
             string fileName = $"{image.Path}.{image.Extension}";
-            return await GetFileStreamAsync(ImagesFolder, fileName);
+            return await GetFileStreamAsync(thumbmailFolder, fileName);
         }
 
         public async Task<(Stream videoStream, string contentType)> GetVideoStreamAsync(string videoKey)
         {
             string folder = videoKey.Split(".").First();
-            return await GetFileStreamAsync(VideosFolder, $"{folder}/{videoKey}");
+            return await GetFileStreamAsync(videosFolder, $"{folder}/{videoKey}");
         }
 
         public async Task<(Stream segmentStream, string contentType)> GetVideoSegmentAsync(string segmentKey)
         {
             string folder = GetFolder(segmentKey);
-            return await GetFileStreamAsync(VideosFolder, $"{folder}/{segmentKey}");
+            return await GetFileStreamAsync(videosFolder, $"{folder}/{segmentKey}");
         }
 
         private string GetFolder(string fileName)

@@ -14,6 +14,10 @@ namespace OmegaStreamServices.Services.Base
         protected readonly AppDbContext _context;
         protected readonly DbSet<T> _dbSet;
 
+        public BaseRepository()
+        {
+        }
+
         public BaseRepository(AppDbContext context)
         {
             _context = context;
@@ -26,10 +30,10 @@ namespace OmegaStreamServices.Services.Base
             await _context.SaveChangesAsync();
         }
 
-        public virtual void Delete(T entity)
+        public virtual async Task Delete(T entity)
         {
             _dbSet.Remove(entity);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
         }
 
         public virtual async Task<T> FindByIdAsync(int id)
@@ -46,6 +50,12 @@ namespace OmegaStreamServices.Services.Base
         {
             _dbSet.Update(entity);
             _context.SaveChanges();
+        }
+
+        public virtual async Task DeleteMultipleAsync(List<T> entities)
+        {
+            _dbSet.RemoveRange(entities);
+            await _context.SaveChangesAsync();
         }
     }
 }

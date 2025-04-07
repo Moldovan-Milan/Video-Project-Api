@@ -43,6 +43,19 @@ namespace OmegaStreamServices.Data
             }
         }
 
+        public static void DeleteDirectoryWithFiles(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                var files = Directory.GetFiles(path);
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+                Directory.Delete(path, true);
+            }
+        }
+
         public static string GenerateFileName()
         {
             return Guid.NewGuid().ToString();

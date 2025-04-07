@@ -4,8 +4,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Services
 {
@@ -14,286 +12,403 @@ namespace OmegaStreamServices.Services
         public static ConcurrentDictionary<string, RoomState> RoomStates { get; } = new();
         private const int MAX_USER_COUNT_IN_ROOM = 8;
 
-        public RoomStateResult AddUserToRoom(string roomId, User user, string connectionId, out RoomState? roomState)
+        private bool TryGetRoom(string roomId, out RoomState roomState)
+            => RoomStates.TryGetValue(roomId, out roomState);
+
+        private bool TryGetUser(RoomState room, string userId, out User user)
+        {
+            user = room.Members.FirstOrDefault(u => u.Id == userId);
+            return user != null;
+        }
+
+        private RoomStateResult Fail(out RoomState? roomState)
         {
             roomState = null;
-            if (!IsContainsUser(user.Id))
-            {
-                try
-                {
-                    if (!RoomStates.TryGetValue(roomId, out var _roomState))
-                    {
-                        roomState = RoomStates.GetOrAdd(roomId, _ => new RoomState
-                        {
-                            Host = user,
-                            IsHostInRoom = true,
-                            HostConnId = connectionId,
-                            Members = new List<User> { user },
-                        });
-
-                        return RoomStateResult.Created;
-                    }
-                    else if (user.Id == _roomState.Host.Id && !_roomState.IsHostInRoom)
-                    {
-                        _roomState.IsHostInRoom = true;
-                        _roomState.Members.Add(user);
-                        _roomState.HostConnId = connectionId;
-                        roomState = _roomState;
-                        return RoomStateResult.HostReconected;
-                    }
-                    else
-                    {
-                        if (_roomState.BannedUsers.Any(x => x.Id == user.Id))
-                        {
-                            return RoomStateResult.Banned;
-                        }
-                        if (_roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
-                        {
-                            _roomState.WaitingForAccept[user.Id] = connectionId;
-                            roomState = _roomState;
-                            return RoomStateResult.NeedsAproval;
-                        }
-                        else
-                        {
-                            return RoomStateResult.RoomIsFull;
-                        }
-                    }
-                }
-                catch
-                {
-                    return RoomStateResult.Failed;
-                }
-            }
             return RoomStateResult.Failed;
         }
 
+        /// <summary>
+        /// Adds a user to the room. If the room does not exist, it creates a new one.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="user"></param>
+        /// <param name="connectionId"></param>
+        /// <param name="roomState"></param>
+        /// <returns></returns>
+        public RoomStateResult AddUserToRoom(string roomId, User user, string connectionId, out RoomState? roomState)
+        {
+            roomState = null;
+            if (IsContainsUser(user.Id)) return Fail(out roomState);
+
+            try
+            {
+                if (!TryGetRoom(roomId, out var _roomState))
+                {
+                    roomState = RoomStates.GetOrAdd(roomId, _ => new RoomState
+                    {
+                        Host = user,
+                        IsHostInRoom = true,
+                        HostConnId = connectionId,
+                        Members = new List<User> { user },
+                    });
+                    return RoomStateResult.Created;
+                }
+
+                if (user.Id == _roomState.Host.Id && !_roomState.IsHostInRoom)
+                {
+                    _roomState.IsHostInRoom = true;
+                    _roomState.Members.Add(user);
+                    _roomState.HostConnId = connectionId;
+                    roomState = _roomState;
+                    return RoomStateResult.HostReconected;
+                }
+
+                if (_roomState.BannedUsers.Any(x => x.Id == user.Id))
+                    return RoomStateResult.Banned;
+
+                if (_roomState.Members.Count < MAX_USER_COUNT_IN_ROOM)
+                {
+                    _roomState.WaitingForAccept[user.Id] = connectionId;
+                    roomState = _roomState;
+                    return RoomStateResult.NeedsAproval;
+                }
+
+                return RoomStateResult.RoomIsFull;
+            }
+            catch
+            {
+                return Fail(out roomState);
+            }
+        }
+
+        /// <summary>
+        /// Rejects a user from the room. If the user is not in the waiting list, it returns false.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="userId"></param>
+        /// <param name="connectionId"></param>
+        /// <param name="roomState"></param>
+        /// <returns></returns>
         public bool RejectUser(string roomId, string userId, out string? connectionId, out RoomState? roomState)
         {
             connectionId = string.Empty;
             roomState = null;
 
-            if (!RoomStates.TryGetValue(roomId, out var _roomState))
-            {
+            if (!TryGetRoom(roomId, out var room) || !room.WaitingForAccept.TryGetValue(userId, out connectionId))
                 return false;
-            }
 
-            if (!_roomState.WaitingForAccept.TryGetValue(userId, out string? connId))
-            {
-                return false;
-            }
-
-            connectionId = connId;
-            _roomState.WaitingForAccept.Remove(userId);
-            roomState = _roomState;
+            room.WaitingForAccept.Remove(userId);
+            roomState = room;
             return true;
         }
 
+
+        /// <summary>
+        /// Removes a user from the room. If the user is the host, it sets the host as not in the room.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="userId"></param>
+        /// <param name="connectionId"></param>
+        /// <param name="roomState"></param>
+        /// <returns></returns>
         public RoomStateResult RemoveUserFromRoom(string roomId, string userId, string connectionId, out RoomState? roomState)
         {
             roomState = null;
-            if (!RoomStates.TryGetValue(roomId, out var _roomState))
+            if (!TryGetRoom(roomId, out var room) || !TryGetUser(room, userId, out var user))
+                return Fail(out roomState);
+
+            room.Members.Remove(user);
+            if (room.Host.Id == userId)
             {
-                return RoomStateResult.Failed;
+                room.IsHostInRoom = false;
+                room.HostConnId = string.Empty;
             }
 
-            User? user = _roomState.Members.FirstOrDefault(x => x.Id == userId);
-            if (user == null)
-            {
-                return RoomStateResult.Failed;
-            }
-
-            _roomState.Members.Remove(user);
-
-            if (_roomState.Host.Id == userId)
-            {
-                _roomState.IsHostInRoom = false;
-                _roomState.HostConnId = string.Empty;
-            }
-
-            if (_roomState.Members.Count == 0 && !_roomState.IsHostInRoom)
+            if (!room.Members.Any() && !room.IsHostInRoom)
             {
                 RoomStates.TryRemove(roomId, out _);
                 return RoomStateResult.RoomClosed;
             }
 
-            if (!_roomState.IsHostInRoom)
-            {
-                roomState = _roomState;
-                return RoomStateResult.HostLeft;
-            }
-
-            roomState = _roomState;
-            return RoomStateResult.Accepted;
+            roomState = room;
+            return room.IsHostInRoom ? RoomStateResult.Accepted : RoomStateResult.HostLeft;
         }
 
+        /// <summary>
+        /// Accepts a user from the waiting list. If the user is not in the waiting list, it returns false.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="user"></param>
+        /// <param name="connectionId"></param>
+        /// <param name="roomState"></param>
+        /// <returns></returns>
         public RoomStateResult AcceptUser(string roomId, User user, out string connectionId, out RoomState? roomState)
         {
             connectionId = string.Empty;
             roomState = null;
 
-            if (!RoomStates.TryGetValue(roomId, out var _roomState))
-            {
+            if (!TryGetRoom(roomId, out var room) || !room.WaitingForAccept.TryGetValue(user.Id, out connectionId))
                 return RoomStateResult.Failed;
-            }
 
-            roomState = _roomState;
-
-            if (!_roomState.WaitingForAccept.TryGetValue(user.Id, out string? connId))
-            {
-                return RoomStateResult.Failed;
-            }
-
-            if (_roomState.Members.Count >= MAX_USER_COUNT_IN_ROOM)
-            {
+            if (room.Members.Count >= MAX_USER_COUNT_IN_ROOM)
                 return RoomStateResult.RoomIsFull;
-            }
 
-            connectionId = connId;
-            _roomState.WaitingForAccept.Remove(user.Id);
-            _roomState.Members.Add(user);
-            _roomState.UserIdAndConnId[user.Id] = connId;
+            room.WaitingForAccept.Remove(user.Id);
+            room.Members.Add(user);
+            room.UserIdAndConnId[user.Id] = connectionId;
 
+            roomState = room;
             return RoomStateResult.Accepted;
         }
 
+        /// <summary>
+        /// Updates the video state in the room. If the room does not exist, it returns false.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="currentTime"></param>
+        /// <param name="isPlaying"></param>
+        /// <returns>
+        /// Returns true if the video state was updated successfully, otherwise false.
+        /// </returns>
         public (bool IsSuccess, string SyncMessage) UpdateVideoState(string roomId, double currentTime, bool isPlaying)
         {
-            if (!RoomStates.TryGetValue(roomId, out var _roomState))
-            {
+            if (!TryGetRoom(roomId, out var room))
                 return (false, string.Empty);
-            }
-            _roomState.VideoState.CurrentTime = currentTime;
-            _roomState.VideoState.IsPlaying = isPlaying;
-            _roomState.VideoState.LastUpdated = DateTime.UtcNow;
+
+            room.VideoState.CurrentTime = currentTime;
+            room.VideoState.IsPlaying = isPlaying;
+            room.VideoState.LastUpdated = DateTime.UtcNow;
 
             return (true, isPlaying ? "Play" : "Pause");
         }
 
+        /// <summary>
+        /// Synchronizes the time of the video in the room. If the room does not exist, it returns null.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="currentTime"></param>
+        /// <returns>
+        /// Returns the room state if the room exists, otherwise null.
+        /// </returns>
         public RoomState SyncTime(string roomId, double currentTime)
         {
-            if (RoomStates.TryGetValue(roomId, out var roomState))
+            if (TryGetRoom(roomId, out var room))
             {
-                roomState.VideoState.CurrentTime = currentTime;
-                roomState.VideoState.LastUpdated = DateTime.UtcNow;
-                return roomState;
+                room.VideoState.CurrentTime = currentTime;
+                room.VideoState.LastUpdated = DateTime.UtcNow;
+                return room;
             }
             return null;
         }
 
+
+        /// <summary>
+        /// Saves a message in the room. If the room does not exist, it returns false.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="sender"></param>
+        /// <param name="content"></param>
+        /// <param name="message"></param>
+        /// <returns>
+        /// Returns true if the message was saved successfully, otherwise false.
+        /// </returns>
         public bool SaveMessage(string roomId, UserDto sender, string content, out RoomMessage? message)
         {
             message = null;
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            if (!TryGetRoom(roomId, out var room))
                 return false;
 
-            RoomMessage newMessage = new RoomMessage
+            var newMessage = new RoomMessage
             {
                 Sender = sender,
                 Content = content
             };
-            
+
             message = newMessage;
-            roomState.RoomMessages.Add(newMessage);
+            room.RoomMessages.Add(newMessage);
             return true;
-            
         }
 
+        /// <summary>
+        /// Bans a user from the room. If the user is not in the room, it returns false.
+        /// </summary>
+        /// <param name="roomId"></param>
+        /// <param name="userId"></param>
+        /// <param name="connId"></param>
+        /// <param name="members"></param>
+        /// <returns>
+        /// Returns true if the user was banned successfully, otherwise false.
+        /// </returns>
         public bool BanUser(string roomId, string userId, out string? connId, out List<User>? members)
         {
             connId = null;
             members = null;
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
+
+            if (!TryGetRoom(roomId, out var room) || !room.UserIdAndConnId.TryGetValue(userId, out connId))
                 return false;
-            if (!roomState.UserIdAndConnId.TryGetValue(userId, out connId))
-            {
-                return false;
-            }
-            var user = roomState.Members.FirstOrDefault(x => x.Id == userId);
+
+            var user = room.Members.FirstOrDefault(x => x.Id == userId);
             if (user == null)
-            {
                 return false;
-            }
 
-            roomState.Members.Remove(user);
-            roomState.BannedUsers.Add(user);
-            roomState.UserIdAndConnId.Remove(userId);
+            room.Members.Remove(user);
+            room.BannedUsers.Add(user);
+            room.UserIdAndConnId.Remove(userId);
 
-            members = roomState.Members;
+            members = room.Members;
             return true;
         }
 
+        /// <summary>
+        /// Adds a video to the playlist. If the room does not exist, it returns false.
+        /// </summary>
+        /// <param name="roomId">
+        /// The ID of the room to which the video will be added.
+        /// </param>
+        /// <param name="video">
+        /// The video to be added to the playlist.
+        /// </param>
+        /// <param name="playList">
+        /// The updated playlist after adding the video.
+        /// </param>
+        /// <returns>
+        /// Returns true if the video was added successfully, otherwise false.
+        /// </returns>
         public bool AddVideoToPlaylist(string roomId, VideoDto video, out List<VideoDto>? playList)
         {
             playList = null;
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
-            {
+            if (!TryGetRoom(roomId, out var room))
                 return false;
-            }
-            roomState.PlayList.Add(video);
-            playList = roomState.PlayList;
+
+            room.PlayList.Add(video);
+            playList = room.PlayList;
             return true;
         }
 
+
+        /// <summary>
+        /// Starts a video in the room. If the room does not exist, it returns false.
+        /// </summary>
+        /// <param name="roomId">
+        /// The ID of the room in which the video will be started.
+        /// </param>
+        /// <param name="video">
+        /// The video to be started.
+        /// </param>
+        /// <returns>
+        /// Returns true if the video was started successfully, otherwise false.
+        /// </returns>
         public bool StartVideo(string roomId, Video video)
         {
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            if (!TryGetRoom(roomId, out var room))
                 return false;
-            if (roomState.PlayList.Where(x => x.Id == video.Id).Any())
+
+            if (room.PlayList.Any(x => x.Id == video.Id))
             {
-                roomState.CurrentVideoId = video.Id;
+                room.CurrentVideoId = video.Id;
                 return true;
             }
+
             return false;
         }
 
+
+        /// <summary>
+        /// Removes a video from the playlist. If the room does not exist, it returns false.
+        /// </summary>
+        /// <param name="roomId">
+        /// The ID of the room from which the video will be removed.
+        /// </param>
+        /// <param name="videoId">
+        /// The ID of the video to be removed from the playlist.
+        /// </param>
+        /// <param name="playList">
+        /// The updated playlist after removing the video.
+        /// </param>
+        /// <returns>
+        /// Returns true if the video was removed successfully, otherwise false.
+        /// </returns>
         public bool RemoveVideoFromPlayList(string roomId, int videoId, out List<VideoDto>? playList)
         {
             playList = null;
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
-            {
+            if (!TryGetRoom(roomId, out var room))
                 return false;
-            }
-            var video = roomState.PlayList.FirstOrDefault(x => x.Id == videoId);
+
+            var video = room.PlayList.FirstOrDefault(x => x.Id == videoId);
             if (video == null)
                 return false;
-            roomState.PlayList.Remove(video);
-            playList = roomState.PlayList;
+
+            room.PlayList.Remove(video);
+            playList = room.PlayList;
             return true;
         }
 
+        /// <summary>
+        /// Plays the next video in the playlist. If the room does not exist, it returns null.
+        /// </summary>
+        /// <param name="roomId">
+        /// The ID of the room in which the next video will be played.
+        /// </param>
+        /// <returns>
+        /// Returns the next video in the playlist if it exists, otherwise null.
+        /// </returns>
         public VideoDto? PlayNextVideo(string roomId)
         {
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
+            if (TryGetRoom(roomId, out var room))
             {
-                return null;
+                return room.GetNextVideoLoop();
             }
-
-            return roomState.GetNextVideoLoop();
+            return null;
         }
 
         public bool IsRoomExist(string roomId)
-        {
-            if (!RoomStates.TryGetValue(roomId, out var roomState))
-            {
-                return false;
-            }
-
-            return true;
-        }
+            => TryGetRoom(roomId, out _);
 
         public bool RemoveRoom(string roomId)
-        {
-            return RoomStates.TryRemove(roomId, out _);
-        }
+            => RoomStates.TryRemove(roomId, out _);
 
         public RoomState? GetRoomState(string roomId)
-        {
-            return RoomStates.TryGetValue(roomId, out var roomState) ? roomState : null;
-        }
-        
+            => TryGetRoom(roomId, out var room) ? room : null;
+
         private bool IsContainsUser(string userId)
+            => RoomStates.Values.Any(room => room.Members.Any(member => member.Id == userId));
+
+
+        /// <summary>
+        /// Removes a user from the room by user ID. If the user is not found, it returns false.
+        /// </summary>
+        /// <param name="userId">
+        /// The ID of the user to be removed.
+        /// </param>
+        /// <param name="roomId">
+        /// The ID of the room from which the user will be removed.
+        /// </param>
+        /// <param name="members">
+        /// The list of members in the room after removing the user.
+        /// </param>
+        /// <returns>
+        /// Returns true if the user was removed successfully, otherwise false.
+        /// </returns>
+        public bool RemoveUserByUserId(string userId, out string? roomId, out List<User>? members)
         {
-            return RoomStates.Values.Any(room => room.Members.Any(member => member.Id == userId));
+            roomId = null;
+            members = null;
+
+            foreach (var room in RoomStates)
+            {
+                if (room.Value.Members.Any(x => x.Id == userId))
+                {
+                    roomId = room.Key;
+                    members = room.Value.Members;
+                    var user = room.Value.Members.FirstOrDefault(x => x.Id == userId);
+                    if (user != null)
+                    {
+                        room.Value.Members.Remove(user);
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
     }
 }
