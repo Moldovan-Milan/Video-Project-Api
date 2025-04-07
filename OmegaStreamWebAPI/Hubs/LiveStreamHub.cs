@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
+using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Hubs
 {
@@ -138,6 +140,15 @@ namespace OmegaStreamWebAPI.Hubs
         public async Task SendIceCandidate(string connectionId, string candidate)
         {
             await Clients.Client(connectionId).SendAsync("ReceiveIceCandidate", candidate, Context.ConnectionId);
+        }
+
+        public override Task OnDisconnectedAsync(Exception? exception)
+        {
+            var userIdFromToken = Context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Console.WriteLine(userIdFromToken);
+            Console.WriteLine("Disconected");
+
+            return base.OnDisconnectedAsync(exception);
         }
 
         #endregion WebRTC
