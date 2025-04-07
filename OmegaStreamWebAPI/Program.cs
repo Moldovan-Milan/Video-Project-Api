@@ -131,6 +131,8 @@ namespace OmegaStreamWebAPI
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+
+            builder.Services.AddSingleton<ILiveStreamRepository, LiveStreamRepository>();
             builder.Services.AddScoped<IUserThemeRepository, UserThemeRepository>();
 
             builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
@@ -225,7 +227,8 @@ namespace OmegaStreamWebAPI
 
             // SignalR endpoint
             app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin").RequireAuthorization();
-            app.MapHub<WatchTogetherHub>("/watch").RequireAuthorization();
+            app.MapHub<WatchTogetherHub>("/watch").RequireCors("AllowSpecificOrigin");
+            app.MapHub<LiveStreamHub>("/live").RequireCors("AllowSpecificOrigin");
 
 
             // Configure the HTTP request pipeline.

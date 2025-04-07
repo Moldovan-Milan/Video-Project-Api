@@ -1,13 +1,13 @@
-using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
-using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
-using OmegaStreamServices.Services.UserServices;
+using OmegaStreamServices.Services;
 using System.Security.Claims;
+using AutoMapper;
+using OmegaStreamServices.Services.UserServices;
 
 namespace OmegaStreamWebAPI.Controllers
 {
@@ -380,7 +380,7 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return NotFound();
                 }
-                if(user.Email == "admin@omegastream.com")
+                if (user.Email == "admin@omegastream.com")
                 {
                     return Forbid("You cannot delete the admin account!");
                 }
@@ -421,7 +421,7 @@ namespace OmegaStreamWebAPI.Controllers
                         return Forbid("You are not logged in!");
                     }
                 }
-                if(userId == userIdFromToken)
+                if (userId == userIdFromToken)
                 {
                     return Ok(roles);
                 }
@@ -457,7 +457,7 @@ namespace OmegaStreamWebAPI.Controllers
                     return Conflict("You are already verified!");
                 }
 
-                if(user.IsVerificationRequested)
+                if (user.IsVerificationRequested)
                 {
                     return Conflict("Verification request already submitted!");
                 }
@@ -466,7 +466,7 @@ namespace OmegaStreamWebAPI.Controllers
 
                 return Ok("Verification request submitted successfully.");
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return HandleException(ex, "request-verification");
             }
@@ -480,7 +480,7 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                
+
                 if (userIdFromToken == null)
                 {
                     return Forbid("You are not logged in!");
@@ -497,7 +497,7 @@ namespace OmegaStreamWebAPI.Controllers
                 bool hasVerificationRequest = await _userService.HasActiveVerificationRequest(userId);
                 return Ok(hasVerificationRequest);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return HandleException(ex, "verification-request/active");
             }
@@ -509,4 +509,3 @@ namespace OmegaStreamWebAPI.Controllers
         }
     }
 }
-

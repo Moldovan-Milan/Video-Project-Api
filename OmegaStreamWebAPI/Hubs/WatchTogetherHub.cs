@@ -11,7 +11,7 @@ using System.Security.Claims;
 
 namespace OmegaStreamWebAPI.Hubs
 {
-    public class WatchTogetherHub : Hub
+    public class WatchTogetherHub : BaseHub
     {
         private readonly UserManager<User> _userManager;
         private readonly IVideoRepository _videoRepository;
