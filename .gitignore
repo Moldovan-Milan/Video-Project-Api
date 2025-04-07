@@ -35,3 +35,4 @@ appsettings.json
 
 /OmegaStreamWebAPI/omega_stream.sqlite-shm
 /OmegaStreamWebAPI/omega_stream.sqlite-wal
+/OmegaStreamWebAPI/Properties/launchSettings.json
