@@ -12,8 +12,9 @@ namespace OmegaStreamServices.Data
     {
 
         private static readonly string ffmpegPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe")
-            : Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
+        ? Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe")
+        : "/usr/bin/ffmpeg";
+
 
         public static async Task SplitMP4ToM3U8(string inputPath, string outputName, string workingDirectory, int splitTimeInSec = 10)
         {
