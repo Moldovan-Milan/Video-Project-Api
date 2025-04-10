@@ -5,8 +5,11 @@ using Microsoft.Extensions.Configuration;
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
+using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.Text;
 using Xabe.FFmpeg;
 //using Xabe.FFmpeg.Downloader;
 
@@ -214,42 +217,69 @@ namespace OmegaStreamServices.Services.VideoServices
             }
         }
 
-    public async Task<(int width, int height, TimeSpan duration)> GetVideoPropertiesAsync(string path)
-    {
-        try
+        public async Task<(int width, int height, TimeSpan duration)> GetVideoPropertiesAsync(string path)
         {
-            if (!File.Exists(path))
+            try
             {
-                Console.WriteLine($"The file does not exist at: {path}");
+                if (!File.Exists(path))
+                {
+                    Console.WriteLine($"The file does not exist at: {path}");
+                    return (0, 0, TimeSpan.Zero);
+                }
+
+                var processStartInfo = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = $"-i \"{path}\"",
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                var process = new Process { StartInfo = processStartInfo };
+                StringBuilder output = new StringBuilder();
+
+                process.ErrorDataReceived += (sender, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                        output.AppendLine(e.Data);
+                };
+
+                process.Start();
+                process.BeginErrorReadLine();
+                await process.WaitForExitAsync();
+
+                string ffmpegOutput = output.ToString();
+
+                var resolutionMatch = Regex.Match(ffmpegOutput, @"(\d{2,5})x(\d{2,5})");
+                var durationMatch = Regex.Match(ffmpegOutput, @"Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})");
+
+                if (resolutionMatch.Success && durationMatch.Success)
+                {
+                    int width = int.Parse(resolutionMatch.Groups[1].Value);
+                    int height = int.Parse(resolutionMatch.Groups[2].Value);
+
+                    int hours = int.Parse(durationMatch.Groups[1].Value);
+                    int minutes = int.Parse(durationMatch.Groups[2].Value);
+                    int seconds = int.Parse(durationMatch.Groups[3].Value);
+                    int milliseconds = int.Parse(durationMatch.Groups[4].Value) * 10;
+
+                    var duration = new TimeSpan(0, hours, minutes, seconds, milliseconds);
+                    return (width, height, duration);
+                }
+
+                Console.WriteLine("Could not parse video properties.");
                 return (0, 0, TimeSpan.Zero);
             }
-
-                // Beállítás, ha még nem tetted meg máshol:
-                FFmpeg.SetExecutablesPath(ffmpegPath); // vagy Windowson: FFmpeg.SetExecutablesPath("ffmpeg mappa");
-
-                IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(path);
-
-            var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
-            if (videoStream == null)
+            catch (Exception ex)
             {
-                throw new Exception("No video stream found.");
+                Console.WriteLine($"Error happened: {ex.Message}");
+                return (0, 0, TimeSpan.Zero);
             }
-
-            int width = videoStream.Width;
-            int height = videoStream.Height;
-            TimeSpan duration = mediaInfo.Duration;
-
-            return (width, height, duration);
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error happened: {ex.Message}");
-            return (0, 0, TimeSpan.Zero);
-        }
-    }
 
-
-    public async Task<bool> CanUploadVideo(long fileSize)
+        public async Task<bool> CanUploadVideo(long fileSize)
         {
             long totalSize = await _cloudServices.GetBucketFileSizeSum();
             string? bucketMaxSize = _configuration["CloudService:MaxBucketSize"];
