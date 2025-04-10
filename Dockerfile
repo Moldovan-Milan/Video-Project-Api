@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y ffmpeg
 ENV FFMPEG_PATH=/usr/bin/ffmpeg
 
 WORKDIR /app
-EXPOSE 5047
-EXPOSE 7124
+EXPOSE 8080
+EXPOSE 8081
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build

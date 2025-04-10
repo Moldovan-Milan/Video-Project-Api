@@ -63,11 +63,15 @@ namespace OmegaStreamWebAPI
             //    options.UseSqlite("Data Source=omega_stream.sqlite"));
 
 
+
             string connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
             builder.Services.AddDbContext<AppDbContext>(opt =>
             {
                 opt.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
             });
+            
+
+                
 
             // Identity
             builder.Services.Configure<IdentityOptions>(options =>
