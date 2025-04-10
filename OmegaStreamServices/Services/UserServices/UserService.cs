@@ -356,7 +356,7 @@ public class UserService : IUserService
         if (user == null)
             return (null, null);
 
-        var newRefreshToken = await _tokenGenerator.GenerateRefreshToken(user.Id);
+        var newRefreshToken = await TokenGenerator.GenerateRefreshToken(user.Id);
         _refreshTokenRepository.Delete(refreshTokenObj);
         await _refreshTokenRepository.Add(newRefreshToken);
 
@@ -367,7 +367,7 @@ public class UserService : IUserService
 
     private async Task<string> GenerateRefreshToken(string userId)
     {
-        var refreshToken = await _tokenGenerator.GenerateRefreshToken(userId);
+        var refreshToken = await TokenGenerator.GenerateRefreshToken(userId);
         await _refreshTokenRepository.Add(refreshToken);
         return refreshToken.Token;
     }
