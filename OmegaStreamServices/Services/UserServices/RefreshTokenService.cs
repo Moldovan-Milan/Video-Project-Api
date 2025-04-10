@@ -25,7 +25,7 @@ namespace OmegaStreamServices.Services.UserServices
             var refreshToken = await _refreshTokenRepository.GetByUserId(userId);
             if (refreshToken == null)
             {
-                refreshToken = TokenGenerator.GenerateRefreshToken(userId);
+                refreshToken = await TokenGenerator.GenerateRefreshToken(userId);
                 refreshToken.Token = _encryptionHelper.Encrypt(refreshToken.Token);
                 await _refreshTokenRepository.Add(refreshToken);
             }

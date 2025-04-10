@@ -56,7 +56,7 @@ namespace OmegaStreamServices.Data
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        public async Task<RefreshToken> GenerateRefreshToken(string userId)
+        public static async Task<RefreshToken> GenerateRefreshToken(string userId)
         {
             return await Task.FromResult(new RefreshToken
             {
