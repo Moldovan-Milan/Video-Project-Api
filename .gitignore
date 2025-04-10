@@ -35,3 +35,6 @@ appsettings.json
 
 /OmegaStreamWebAPI/omega_stream.sqlite-shm
 /OmegaStreamWebAPI/omega_stream.sqlite-wal
+/OmegaStreamWebAPI/192.168.1.72.pem
+/OmegaStreamWebAPI/192.168.1.72-key.pem
+/OmegaStreamWebAPI/ffmpeg.exe

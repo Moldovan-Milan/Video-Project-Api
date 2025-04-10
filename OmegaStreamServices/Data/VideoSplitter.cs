@@ -5,17 +5,23 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WMPLib;
+using System.Runtime.InteropServices;
 
 namespace OmegaStreamServices.Data
 {
     public class VideoSplitter
     {
+
+        private static readonly string ffmpegPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe")
+            : Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
+
         public static async Task SplitMP4ToM3U8(string inputPath, string outputName, string workingDirectory, int splitTimeInSec = 10)
         {
             // ffmpeg parancsot futtat cmd-ben, amely felbontja a videót több .ts fájlra
             using (Process process = new Process())
             {
-                process.StartInfo.FileName = "ffmpeg";
+                process.StartInfo.FileName = ffmpegPath;
                 process.StartInfo.Arguments =
                     $"-i \"{inputPath}\" -codec: copy -start_number 0 -hls_time {splitTimeInSec} -hls_list_size 0 -hls_segment_filename \"{outputName}%03d.ts\" -f hls \"{outputName}.m3u8\"";
                 process.StartInfo.WorkingDirectory = workingDirectory;
@@ -45,7 +51,7 @@ namespace OmegaStreamServices.Data
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "ffmpeg",
+                    FileName = ffmpegPath,
                     Arguments = $"-i \"{videoName}\" -ss {splitTime} -vframes 1 -f image2pipe -vcodec png -",
                     WorkingDirectory = workingDirectory,
                     RedirectStandardOutput = true,
