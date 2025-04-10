@@ -3,7 +3,7 @@
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 
-# Install ffpmeg (linux)
+# Install ffmpeg (Linux)
 USER root
 RUN apt-get update && apt-get install -y ffmpeg
 
@@ -16,7 +16,7 @@ EXPOSE 7124
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-ARG BUILD_CONFIGURATION=Release
+ARG BUILD_CONFIGURATION=Debug
 WORKDIR /src
 COPY ["OmegaStreamWebAPI/OmegaStreamWebAPI.csproj", "OmegaStreamWebAPI/"]
 COPY ["OmegaStreamServices/OmegaStreamServices.csproj", "OmegaStreamServices/"]
@@ -27,7 +27,7 @@ RUN dotnet build "./OmegaStreamWebAPI.csproj" -c $BUILD_CONFIGURATION -o /app/bu
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
+ARG BUILD_CONFIGURATION=Debug
 RUN dotnet publish "./OmegaStreamWebAPI.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)

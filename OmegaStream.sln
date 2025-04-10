@@ -3,12 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35303.130
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmegaStreamServices", "OmegaStreamServices\OmegaStreamServices.csproj", "{DB53A96D-254A-42FE-A742-629205802AB9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OmegaStreamServices", "OmegaStreamServices\OmegaStreamServices.csproj", "{DB53A96D-254A-42FE-A742-629205802AB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OmegaStreamWebAPI", "OmegaStreamWebAPI\OmegaStreamWebAPI.csproj", "{1F866B86-A30F-4D02-B24A-228EDB08E7E6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OmegaStreamWebAPI", "OmegaStreamWebAPI\OmegaStreamWebAPI.csproj", "{1F866B86-A30F-4D02-B24A-228EDB08E7E6}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		OmegaStreamWebAPI\Dockerfile = OmegaStreamWebAPI\Dockerfile
 		README.md = README.md
 	EndProjectSection
 EndProject

@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime;
-using WMPLib;
 
 namespace OmegaStreamServices.Data
 {
