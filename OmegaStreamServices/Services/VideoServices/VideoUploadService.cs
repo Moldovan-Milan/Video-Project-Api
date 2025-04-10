@@ -28,7 +28,7 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly int thumbnailSplitTime = 5;
 
         private static readonly string ffmpegPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe")
+            ? AppContext.BaseDirectory
             : Environment.GetEnvironmentVariable("FFMPEG_PATH") ?? "ffmpeg";
 
         public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices, IConfiguration configuration)
@@ -225,7 +225,7 @@ namespace OmegaStreamServices.Services.VideoServices
             }
 
                 // Beállítás, ha még nem tetted meg máshol:
-                FFmpeg.SetExecutablesPath(Path.GetDirectoryName(ffmpegPath)!); // vagy Windowson: FFmpeg.SetExecutablesPath("ffmpeg mappa");
+                FFmpeg.SetExecutablesPath(ffmpegPath); // vagy Windowson: FFmpeg.SetExecutablesPath("ffmpeg mappa");
 
                 IMediaInfo mediaInfo = await FFmpeg.GetMediaInfo(path);
 
