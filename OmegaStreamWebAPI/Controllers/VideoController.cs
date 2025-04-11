@@ -400,6 +400,7 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return Unauthorized("You are not logged in!");
             }
+            extension = "." + extension;
             if (!supportedFormats.Contains(extension))
             {
                 return BadRequest("Unsupported video format.");
