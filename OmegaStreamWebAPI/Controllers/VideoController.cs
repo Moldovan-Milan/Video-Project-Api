@@ -32,6 +32,7 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly UserManager<User> _userManager;
         private readonly ICommentRepositroy _commentRepository;
         private readonly IUserVideoUploadRepositroy _userVideoUploadRepositroy;
+        private readonly List<string> supportedFormats = new List<string> { ".mp4", ".mov" };
 
         public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository, IUserVideoUploadRepositroy userVideoUploadRepositroy)
         {
@@ -392,14 +393,18 @@ namespace OmegaStreamWebAPI.Controllers
         [Authorize(Roles = "Verified,Admin")]
         [HttpPost]
         [Route("can-upload")]
-        public async Task<IActionResult> CanUploadVideo([FromForm] long videoSize, [FromForm] string fileName)
+        public async Task<IActionResult> CanUploadVideo([FromForm] long videoSize, [FromForm] string fileName, [FromForm] string extension, [FromForm] IFormFile? thumbnail)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
             {
                 return Unauthorized("You are not logged in!");
             }
-            bool response = await _videoUploadService.CanUploadVideo(videoSize);
+            if (!supportedFormats.Contains(extension))
+            {
+                return BadRequest("Unsupported video format.");
+            }
+            bool response = (await _videoUploadService.CanUploadVideo(videoSize)) && (thumbnail!=null && (await _videoUploadService.CanUploadThumbnail(thumbnail)).Item1);
             if (response)
             {
                 await _userVideoUploadRepositroy.AddUserVideoUpload(new UserVideoUpload
@@ -435,7 +440,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         [Authorize(Roles = "Verified,Admin")]
         [HttpPost("assemble")]
-        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile? image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string extension)
+        public async Task<IActionResult> AssembleFile([FromForm] string fileName, [FromForm] IFormFile? image, [FromForm] int totalChunks, [FromForm] string title, [FromForm] string? description, [FromForm] string extension)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdFromToken == null)
@@ -443,15 +448,20 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized("You are not logged in!");
             }
 
-
             _logger.LogInformation("Assembling file: {FileName} with {TotalChunks} chunks.", fileName, totalChunks);
             await using var imageStream = image?.OpenReadStream();
-            await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, extension, userIdFromToken).ConfigureAwait(false);
+            await _videoUploadService.AssembleFile(fileName, imageStream, totalChunks, title, description, extension, userIdFromToken).ConfigureAwait(false);
             _logger.LogInformation("Successfully assembled file: {FileName}", fileName);
 
             await _userVideoUploadRepositroy.RemoveUserVideoUploadByName(fileName);
 
             return Created("", new { message = "Video assembled successfully." });
+        }
+
+        [HttpGet("get-supported-formats")]
+        public IActionResult GetSupportedFormats()
+        {
+            return Ok(supportedFormats);
         }
 
         #endregion Video Upload

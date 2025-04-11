@@ -25,6 +25,9 @@ namespace OmegaStreamServices.Services.VideoServices
         private readonly int videoSplitTime = 30;
         private readonly int thumbnailSplitTime = 5;
 
+        private readonly List<string> supportedImageFormats = new List<string> { "image/png", "image/jpg", "image/jpeg" };
+        private readonly long maxThumbnailFileSize = 3145728; // 3 MB
+
         public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices, IConfiguration configuration)
         {
             _videoRepository = videoRepository;
@@ -77,7 +80,7 @@ namespace OmegaStreamServices.Services.VideoServices
         /// <param name="title">The title of the video.</param>
         /// <param name="extension">The file extension of the video.</param>
         /// <param name="userId">The ID of the user who uploaded the video.</param>
-        public async Task AssembleFile(string fileName, Stream? image, int totalChunks, string title, string extension, string userId)
+        public async Task AssembleFile(string fileName, Stream? image, int totalChunks, string title, string? description, string extension, string userId)
         {
             if (!File.Exists($"{AppContext.BaseDirectory}/temp"))
             {
@@ -108,7 +111,11 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 return;
             }
-            await SaveVideoToDatabase(uniqueFileName, duration, extension, title, userId, width, height);
+            if(description == null)
+            {
+                description = "Teszt";
+            }
+            await SaveVideoToDatabase(uniqueFileName, duration, extension, title, description, userId, width, height);
 
             // Ha nincs indexkép, akkor készítünk egyet
             if (image == null)
@@ -125,7 +132,7 @@ namespace OmegaStreamServices.Services.VideoServices
             await _cloudServices.UploadToR2($"{thumbnailUploadPath}/{uniqueFileName}.{defaultThumbnailFormat}", image);
         }
 
-        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string userId,
+        public async Task SaveVideoToDatabase(string uniqueFileName, TimeSpan duration, string videoExtension, string title, string description, string userId,
             int width, int height)
         {
             bool isShort = height > width && duration <= new TimeSpan(0, 3, 0);
@@ -138,7 +145,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 Duration = new TimeSpan(duration.Hours, duration.Minutes, duration.Seconds),
                 Extension = videoExtension,
                 Title = title,
-                Description = "Teszt",
+                Description = description,
                 ThumbnailId = image.Id,
                 IsShort = isShort,
                 UserId = userId
@@ -265,6 +272,36 @@ namespace OmegaStreamServices.Services.VideoServices
                 return false;
             }
             return true;
+        }
+
+        public async Task<(bool, string)> CanUploadThumbnail(IFormFile thumbnail)
+        {
+            if(!supportedImageFormats.Contains(thumbnail.Headers["Content-Type"].ToString()))
+            {
+                return (false, "Unsupported image format");
+            }
+            long fileSize = thumbnail.Length;
+            if(fileSize > maxThumbnailFileSize)
+            {
+                return (false, $"File is larger than {maxThumbnailFileSize*1024*1024} MB");
+            }
+            long totalSize = await _cloudServices.GetBucketFileSizeSum();
+            string? bucketMaxSize = _configuration["CloudService:MaxBucketSize"];
+            long maxSize;
+
+            if (bucketMaxSize != null)
+            {
+                maxSize = long.Parse(bucketMaxSize);
+            }
+            else
+            {
+                maxSize = 10737418240; // 10 GB
+            }
+            if (totalSize + fileSize > maxSize)
+            {
+                return (false, "There isn't enough storage on the server to store this image");
+            }
+            return (true, "");
         }
     }
 }
