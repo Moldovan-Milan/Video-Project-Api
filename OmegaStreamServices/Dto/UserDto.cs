@@ -13,6 +13,7 @@ namespace OmegaStreamServices.Dto
         public string UserName { get; set; }
         public string Email { get; set; }
         public int AvatarId { get; set; }
+        public Image Avatar { get; set; }
         public int FollowersCount { get; set; }
         public DateTime Created { get; set; }
     }

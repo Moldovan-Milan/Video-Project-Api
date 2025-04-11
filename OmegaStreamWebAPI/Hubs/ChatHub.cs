@@ -70,7 +70,7 @@ namespace OmegaStreamWebAPI.Hubs
                 UserChatId = chat.Id,
                 SenderId = senderId,
                 Content = content,
-                SentAt = DateTime.Now
+                SentAt = DateTime.UtcNow
             };
 
             string jsonMessage = JsonConvert.SerializeObject(chatMessage, new JsonSerializerSettings
@@ -107,10 +107,10 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             var chatMessages = await _chatMessageRepository.GetMessagesByChatId(chatId);
-            if (chatMessages == null || !chatMessages.Any())
-            {
-                throw new HubException("No messages found for this chat.");
-            }
+            //if (chatMessages == null || !chatMessages.Any())
+            //{
+            //    throw new HubException("No messages found for this chat.");
+            //}
 
             chatMessages = chatMessages.Select(msg =>
             {

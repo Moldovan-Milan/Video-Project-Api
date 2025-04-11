@@ -23,6 +23,7 @@ namespace OmegaStreamServices.Services.Repositories
             return await Task.FromResult(_dbSet
                 .Where(x => x.IsShort == isShorts)
                 .Include(v => v.User)
+                .ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
                 .Include(v => v.VideoLikes)
@@ -45,6 +46,7 @@ namespace OmegaStreamServices.Services.Repositories
             return await Task.FromResult(_dbSet
                 .Where(v => v.Title.ToLower().Contains(name) && v.IsShort == isShorts)
                 .Include(v => v.User)
+                .ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
                 .Include(v => v.VideoLikes)
@@ -65,6 +67,7 @@ namespace OmegaStreamServices.Services.Repositories
         {
             return await _dbSet
                 .Include(v => v.User)
+                .ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
                     .ThenInclude(c => c.User)

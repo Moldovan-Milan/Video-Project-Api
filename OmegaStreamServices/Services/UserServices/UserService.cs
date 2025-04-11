@@ -262,12 +262,12 @@ public class UserService : IUserService
 
     private async Task<string> SaveBanner(Stream bannerStream)
     {
-        return await _imageService.SaveImage("images/banner", bannerStream);
+        return await _imageService.SaveImage("images/banners", bannerStream);
     }
 
     public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
     {
-        return await _imageService.GetImageStreamByIdAsync("images/banner", bannerId);
+        return await _imageService.GetImageStreamByIdAsync("images/banners", bannerId);
     }
     public async Task DeleteAccount(string userId)
     {

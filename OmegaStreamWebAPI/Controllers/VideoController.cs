@@ -20,7 +20,6 @@ namespace OmegaStreamWebAPI.Controllers
     public class VideoController : ControllerBase
     {
         private readonly IVideoUploadService _videoUploadService;
-        private readonly IVideoStreamService _videoStreamService;
         private readonly ICommentService _commentService;
         private readonly IVideoMetadataService _videoMetadataService;
         private readonly IVideoLikeService _videoLikeService;
@@ -33,10 +32,9 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly ICommentRepositroy _commentRepository;
         private readonly IUserVideoUploadRepositroy _userVideoUploadRepositroy;
 
-        public VideoController(IVideoUploadService videoUploadService, IVideoStreamService videoStreamService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository, IUserVideoUploadRepositroy userVideoUploadRepositroy)
+        public VideoController(IVideoUploadService videoUploadService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository, IUserVideoUploadRepositroy userVideoUploadRepositroy)
         {
             _videoUploadService = videoUploadService;
-            _videoStreamService = videoStreamService;
             _logger = logger;
             _commentService = commentService;
             _videoMetadataService = videoMetadataService;
@@ -49,49 +47,6 @@ namespace OmegaStreamWebAPI.Controllers
             _commentRepository = commentRepository;
             _userVideoUploadRepositroy = userVideoUploadRepositroy;
         }
-
-        #region Video Stream
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetVideo(int id)
-        {
-            _logger.LogInformation("Fetching video metadata for ID: {Id}", id);
-            var video = await _videoMetadataService.GetVideoMetaData(id);
-            if (video == null)
-            {
-                _logger.LogWarning("Video metadata not found for ID: {Id}", id);
-                return NotFound();
-            }
-
-            string videoKey = $"{video.Path}.m3u8";
-
-            try
-            {
-                _logger.LogInformation("Fetching video stream for key: {Key}", videoKey);
-                var (videoStream, contentType) = await _videoStreamService.GetVideoStreamAsync(videoKey);
-                return File(videoStream, contentType, enableRangeProcessing: true);
-            }
-            catch (Exception ex)
-            {
-                return HandleException(ex, "video");
-            }
-        }
-
-        [HttpGet("segments/{segmentKey}")]
-        public async Task<IActionResult> GetVideoSegment(string segmentKey)
-        {
-            _logger.LogInformation("Fetching video segment for key: {SegmentKey}", segmentKey);
-            try
-            {
-                var (segmentStream, contentType) = await _videoStreamService.GetVideoSegmentAsync(segmentKey).ConfigureAwait(false);
-                return File(segmentStream, contentType, enableRangeProcessing: true);
-            }
-            catch (Exception ex)
-            {
-                return HandleException(ex, "segment");
-            }
-        }
-        #endregion
 
         #region Metadata
 
@@ -252,20 +207,20 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        [HttpGet("thumbnail/{imageId}")]
-        public async Task<IActionResult> GetThumbnailImage(int imageId)
-        {
-            _logger.LogInformation("Fetching thumbnail image for ID: {ImageId}", imageId);
-            try
-            {
-                var (imageStream, contentType) = await _videoStreamService.GetThumbnailStreamAsync(imageId).ConfigureAwait(false);
-                return File(imageStream, contentType);
-            }
-            catch (Exception ex)
-            {
-                return HandleException(ex, "thumbnail");
-            }
-        }
+        //[HttpGet("thumbnail/{imageId}")]
+        //public async Task<IActionResult> GetThumbnailImage(int imageId)
+        //{
+        //    _logger.LogInformation("Fetching thumbnail image for ID: {ImageId}", imageId);
+        //    try
+        //    {
+        //        var (imageStream, contentType) = await _videoStreamService.GetThumbnailStreamAsync(imageId).ConfigureAwait(false);
+        //        return File(imageStream, contentType);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return HandleException(ex, "thumbnail");
+        //    }
+        //}
 
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> Search(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)

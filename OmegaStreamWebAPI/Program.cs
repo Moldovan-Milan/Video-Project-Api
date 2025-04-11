@@ -124,9 +124,6 @@ namespace OmegaStreamWebAPI
                 };
             });
 
-
-
-
             // Repositories
             builder.Services.AddScoped<IVideoRepository, VideoRepository>();
             builder.Services.AddScoped<IImageRepository, ImageRepository>();
@@ -148,7 +145,6 @@ namespace OmegaStreamWebAPI
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
             //builder.Services.AddScoped<IFileManagerService, FileManagerService>();
-            builder.Services.AddScoped<IVideoStreamService, VideoStreamService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
             builder.Services.AddScoped<IAvatarService, AvatarService>();
             builder.Services.AddScoped<IUserService, UserService>();
@@ -196,7 +192,7 @@ namespace OmegaStreamWebAPI
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowSpecificOrigin",
-                    builder => builder.WithOrigins("https://localhost:5173", "https://192.168.1.72:5173", "http://localhost:8081", "http://192.168.1.72:8081", "http://omegastream.m108.eu", "https://omegastream.m108.eu")
+                    builder => builder.WithOrigins("https://localhost:5173", "http://localhost:5173", "http://omegastream.m108.eu", "https://omegastream.m108.eu")
                                       .AllowAnyMethod()
                                       .AllowAnyHeader()
                                       .AllowCredentials());
