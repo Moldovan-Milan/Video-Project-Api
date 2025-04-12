@@ -432,6 +432,7 @@ public class UserService : IUserService
             pageSize = 30;
         }
         var users = await _context.Users
+            .Include(u => u.Avatar)
             .Where(u => u.IsVerificationRequested)
             .Skip((pageNumber.Value - 1) * pageSize.Value)
             .Take(pageSize.Value)
