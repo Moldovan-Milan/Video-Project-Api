@@ -120,6 +120,7 @@ public class UserService : IUserService
             pageSize = 30;
         }
         return await _userManager.Users
+            .Include(x => x.Avatar)
             .Skip((pageNumber.Value - 1) * pageSize.Value)
             .Take(pageSize.Value)
             .ToListAsync();
@@ -127,8 +128,11 @@ public class UserService : IUserService
 
     public async Task<User?> GetUserById(string id)
     {
-        return await _userManager.Users.Include(x => x.Followers).Include(x => x.UserTheme).FirstOrDefaultAsync(
-            x => x.Id == id);
+        return await _userManager.Users
+            .Include(x => x.Avatar)
+            .Include(x => x.Followers)
+            .Include(x => x.UserTheme)
+            .FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public async Task<User?> GetUserWithFollowersById(string id)
