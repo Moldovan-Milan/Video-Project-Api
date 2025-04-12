@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
@@ -110,7 +111,7 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task JoinRoom(string roomId, string userId)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");
@@ -133,7 +134,7 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task AcceptUser(string roomId, string userId)
         {
-            User user = await _userManager.FindByIdAsync(userId);
+            User? user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");
@@ -266,7 +267,7 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task SendMessage(string roomId, string userId, string content)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            User? user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");
@@ -296,7 +297,7 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task BanUser(string roomId, string userId)
         {
-            var user = await _userManager.FindByIdAsync(userId);
+            User? user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");
