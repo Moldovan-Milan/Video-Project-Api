@@ -194,13 +194,16 @@ public class UserService : IUserService
         return _mapper.Map<List<UserDto?>>(users);
     }
 
-    public async Task<bool> UpdateUsername(User user, string newName)
+    public async Task<IdentityResult> UpdateUsernameAsync(User user, string newName)
     {
         var result = await _userManager.SetUserNameAsync(user, newName);
-        await _userManager.UpdateNormalizedUserNameAsync(user);
-        await _context.SaveChangesAsync();
-        return result.Succeeded;
+        if (!result.Succeeded)
+            return result;
+
+        result = await _userManager.UpdateAsync(user);
+        return result;
     }
+
 
     public async Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor, Stream? bannerImage, User user)
     {

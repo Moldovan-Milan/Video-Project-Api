@@ -22,7 +22,7 @@ namespace OmegaStreamServices.Services.UserServices
                 Task<User?> GetUserWithFollowersById(string id);
                 Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);
                 Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
-                Task<bool> UpdateUsername(User user, string newName);
+        Task<IdentityResult> UpdateUsernameAsync(User user, string newName);
 
                 Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor,
                      Stream? bannerImage, User user);
