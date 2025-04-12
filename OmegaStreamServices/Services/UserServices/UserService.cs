@@ -152,6 +152,7 @@ public class UserService : IUserService
 
         User? user = await _userManager.Users
             .Include(x => x.Videos)
+            .ThenInclude(v => v.Thumbnail)
             .Include(x => x.Followers)
             .Include(x => x.UserTheme)
             .FirstOrDefaultAsync(x => x.Id == userId);
