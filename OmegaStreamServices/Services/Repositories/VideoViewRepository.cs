@@ -35,6 +35,8 @@ namespace OmegaStreamServices.Services.Repositories
                 .Where(x => x.UserId == userId)
                 .Include(x => x.User)
                 .Include(x => x.Video)
+                .ThenInclude(v => v.Thumbnail)
+                .Include(x => x.Video)
                 .ThenInclude(v => v.User)
                 .OrderByDescending(x => x.ViewedAt)
                 .Skip((pageNumber - 1) * pageSize)
