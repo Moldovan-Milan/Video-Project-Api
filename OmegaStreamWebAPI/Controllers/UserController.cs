@@ -320,7 +320,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return NotFound();
             }
 
-            await _userService.UpdateUsername(user, newName);
+            await _userService.UpdateUsernameAsync(user, newName);
 
             return Ok(_mapper.Map<UserDto>(user));
 
