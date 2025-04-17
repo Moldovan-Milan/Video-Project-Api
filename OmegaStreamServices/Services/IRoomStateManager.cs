@@ -26,6 +26,6 @@ namespace OmegaStreamServices.Services
         bool IsRoomExist(string roomId);
         bool RemoveRoom(string roomId);
         RoomState? GetRoomState(string roomId);
-        bool RemoveUserByUserId(string userId, out string? roomId, out List<User>? members);
+        RoomStateResult RemoveUserByUserId(string userId, out string? roomId, out List<User>? members);
     }
 }

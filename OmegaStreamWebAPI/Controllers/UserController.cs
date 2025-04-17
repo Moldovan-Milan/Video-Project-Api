@@ -427,7 +427,7 @@ namespace OmegaStreamWebAPI.Controllers
                 }
                 if (!roles.Contains("Admin"))
                 {
-                    return Unauthorized("You are not authorized!");
+                    return Forbid("You are not authorized!");
                 }
                 var userRoles = await _userService.GetRoles(userId);
                 return Ok(userRoles);

@@ -389,7 +389,7 @@ namespace OmegaStreamServices.Services
         /// <returns>
         /// Returns true if the user was removed successfully, otherwise false.
         /// </returns>
-        public bool RemoveUserByUserId(string userId, out string? roomId, out List<User>? members)
+        public RoomStateResult RemoveUserByUserId(string userId, out string? roomId, out List<User>? members)
         {
             roomId = null;
             members = null;
@@ -403,12 +403,23 @@ namespace OmegaStreamServices.Services
                     var user = room.Value.Members.FirstOrDefault(x => x.Id == userId);
                     if (user != null)
                     {
-                        room.Value.Members.Remove(user);
-                        return true;
+                        if (room.Value.Host.Id == userId)
+                        {
+                            room.Value.HostConnId = string.Empty;
+                            room.Value.IsHostInRoom = false;
+                            RoomStates.Remove(room.Key, out _);
+                            return RoomStateResult.HostLeft;
+                        }
+                        else
+                        {
+                            room.Value.Members.Remove(user);
+                            room.Value.UserIdAndConnId.Remove(userId);
+                            return RoomStateResult.Accepted;
+                        }
                     }
                 }
             }
-            return false;
+            return RoomStateResult.Failed;
         }
     }
 }

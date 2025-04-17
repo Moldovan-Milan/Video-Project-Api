@@ -433,17 +433,25 @@ namespace OmegaStreamWebAPI.Hubs
         /// </summary>
         /// <param name="exception"></param>
         /// <returns></returns>
-        public override Task OnDisconnectedAsync(Exception? exception)
+        public override async Task OnDisconnectedAsync(Exception? exception)
         {
             string? userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null) return base.OnDisconnectedAsync(exception);
 
-            if (_roomManager.RemoveUserByUserId(userId, out string? roomId, out var members) && roomId != null)
+            var result = _roomManager.RemoveUserByUserId(userId, out string? roomId, out var members);
+            if (result == RoomStateResult.HostLeft)
             {
-                Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+                await Clients.Group(roomId).SendAsync("RoomClosed");
+            }
+            else if (result == RoomStateResult.Accepted)
+            {
+                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+            }
+            else if (result == RoomStateResult.Failed)
+            {
+                await SendErrorMessage(Context.ConnectionId, "Failed to leave room");
             }
 
-            return base.OnDisconnectedAsync(exception);
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }
