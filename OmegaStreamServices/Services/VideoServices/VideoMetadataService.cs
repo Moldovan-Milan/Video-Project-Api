@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
@@ -13,16 +14,14 @@ namespace OmegaStreamServices.Services.VideoServices
     public class VideoMetadataService : IVideoMetadataService
     {
         private readonly IVideoRepository _videoRepository;
-        private readonly IVideoLikesRepository _videoLikeRepository;
         private readonly IMapper _mapper;
-        private readonly ISubscriptionRepository _subscriptionRepository;
+        private readonly IGenericRepository _repo;
 
-        public VideoMetadataService(IVideoRepository videoRepository, IMapper mapper, IVideoLikesRepository videoLikeService, ISubscriptionRepository subscriptionRepository)
+        public VideoMetadataService(IVideoRepository videoRepository, IMapper mapper, IGenericRepository repo)
         {
             _videoRepository = videoRepository;
             _mapper = mapper;
-            _videoLikeRepository = videoLikeService;
-            _subscriptionRepository = subscriptionRepository;
+            _repo = repo;
         }
 
         public async Task<List<VideoDto?>> GetAllVideosMetaData(int? pageNumber, int? pageSize, bool isShorts)
@@ -37,6 +36,7 @@ namespace OmegaStreamServices.Services.VideoServices
             {
                 pageSize = 30;
             }
+            
             var videos = await _videoRepository.GetAllVideosWithIncludes(pageNumber.Value, pageSize.Value, isShorts);
             return _mapper.Map<List<VideoDto?>>(videos);
         }
@@ -45,11 +45,32 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             try
             {
-                Video video = await _videoRepository.GetVideoWithInclude(id);
+                Video? video = await _repo.FirstOrDefaultAsync<Video>(
+                    predicate: x => x.Id == id,
+                    include: x => x.Include(x => x.User)
+                                .ThenInclude(x => x.Avatar)
+                                .Include(x => x.Comments)
+                                .ThenInclude(x => x.User)
+                                .ThenInclude(x => x.Avatar)
+                                .Include(x => x.VideoLikes));
+
+                if (video == null)
+                {
+                    return null;
+                }
+
                 VideoDto videoDto = _mapper.Map<VideoDto>(video);
-                videoDto.User.FollowersCount = await _subscriptionRepository.GetFollowersCount(videoDto.UserId);
-                videoDto.Likes = await _videoLikeRepository.GetLikesByVideoId(video.Id);
-                videoDto.Dislikes = await _videoLikeRepository.GetDisLikesByVideoId(video.Id);
+                videoDto.User.FollowersCount = await _repo.CountAsync<Subscription>(
+                    predicate: x => x.FollowedUserId == videoDto.UserId);
+
+                videoDto.Likes = await _repo.CountAsync<VideoLikes>(
+                    predicate: x => x.VideoId == video.Id && x.IsDislike == false
+                );
+
+                videoDto.Dislikes = await _repo.CountAsync<VideoLikes>(
+                    predicate: x => x.VideoId == video.Id && x.IsDislike == true
+                );
+
                 return videoDto;
             }
             catch (Exception ex)
@@ -58,7 +79,7 @@ namespace OmegaStreamServices.Services.VideoServices
             }
         }
 
-        public async Task<List<VideoDto?>> GetVideosByName(string name, int? pageNumber, int? pageSize, bool isShorts)
+        public async Task<List<VideoDto>?> GetVideosByName(string name, int? pageNumber, int? pageSize, bool isShorts)
         {
             pageNumber = pageNumber ?? 1;
             pageSize = pageSize ?? 30;
@@ -71,7 +92,11 @@ namespace OmegaStreamServices.Services.VideoServices
                 pageSize = 30;
             }
             var videos = await _videoRepository.GetVideosByName(name, pageNumber.Value, pageSize.Value, isShorts);
-            return _mapper.Map<List<VideoDto?>>(videos);
+            if (videos == null || videos.Count == 0)
+            {
+                return null;
+            }
+            return _mapper.Map<List<VideoDto>>(videos);
         }
     }
 }

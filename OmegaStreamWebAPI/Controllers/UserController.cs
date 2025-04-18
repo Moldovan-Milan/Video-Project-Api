@@ -21,7 +21,7 @@ namespace OmegaStreamWebAPI.Controllers
 
 
 
-        public UserController(IUserService userManagerService, IImageRepository imageRepository, ICloudService cloudService,
+        public UserController(IUserService userManagerService, ICloudService cloudService,
             IMapper mapper, IImageService imageService)
         {
             _userService = userManagerService;

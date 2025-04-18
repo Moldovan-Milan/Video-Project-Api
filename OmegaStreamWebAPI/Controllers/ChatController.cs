@@ -2,8 +2,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
+using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.Repositories;
 using System.Security.Claims;
 
@@ -14,18 +16,19 @@ namespace OmegaStreamWebAPI.Controllers
     [ApiController]
     public class ChatController : ControllerBase
     {
-        private readonly IUserChatsRepository _userChatsRepository;
+        private readonly IGenericRepository _repo;
         private readonly IMapper _mapper;
-        private readonly IChatMessageRepository _chatMessageRepository;
+        private readonly IEncryptionHelper _encryptionHelper;
+
         private readonly UserManager<User> _userManager;
 
 
-        public ChatController(IUserChatsRepository userChatsRepository, IMapper mapper, IChatMessageRepository chatMessageRepository, UserManager<User> userManager)
+        public ChatController(IMapper mapper, UserManager<User> userManager, IGenericRepository repo, IEncryptionHelper encryptionHelper)
         {
-            _userChatsRepository = userChatsRepository;
             _mapper = mapper;
-            _chatMessageRepository = chatMessageRepository;
             _userManager = userManager;
+            _repo = repo;
+            _encryptionHelper = encryptionHelper;
         }
 
         [HttpGet("user-chats")]
@@ -37,7 +40,13 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized();
             }
 
-            var userChats = await _userChatsRepository.GetAllChatByUserIdAsync(userIdFromToken);
+            //var userChats = await _userChatsRepository.GetAllChatByUserIdAsync(userIdFromToken);
+            var userChats = await _repo.GetAllAsync<UserChats>
+                (
+                    filter: chat => chat.User1Id == userIdFromToken || chat.User2Id == userIdFromToken,
+                    include: chat => chat.Include(x => x.User1).Include(x => x.User2)
+                );
+
             if (userChats != null)
             {
                 var userChatsDtoList = new List<UserChatsDto>();
@@ -45,13 +54,17 @@ namespace OmegaStreamWebAPI.Controllers
                 foreach (var chat in userChats)
                 {
                     var user = chat.User1.Id == userIdFromToken ? chat.User2 : chat.User1;
-                    var lastMessage = await _chatMessageRepository.GetLastMessageByChatId(chat.Id);
+                    var messages = await _repo.GetAllAsync<ChatMessage>(m => m.UserChatId == chat.Id);
+                    var lastMessage = messages.OrderByDescending(m => m.SentAt)
+                        .Select(m => m.Content)
+                        .FirstOrDefault();
 
                     var userChatsDto = new UserChatsDto
                     {
                         Id = chat.Id,
                         User = _mapper.Map<UserDto>(user),
-                        LastMessage = lastMessage
+                        LastMessage = lastMessage != null ? _encryptionHelper.Decrypt(lastMessage)
+                            : string.Empty
                     };
 
                     userChatsDtoList.Add(userChatsDto);
@@ -73,9 +86,17 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized();
             }
 
-            var (isExist, chat) = await _userChatsRepository.HasUserChat(userIdFromToken, userId);
+            bool isExist = await _repo.AnyAsync<UserChats>(
+                chat => chat.User1Id == userIdFromToken && chat.User2Id == userId
+                || chat.User2Id == userIdFromToken && chat.User1Id == userId);
+
             if (isExist)
-                return Ok(chat.Id);
+            {
+                var chat = await _repo.FirstOrDefaultAsync<UserChats>(chat => chat.User1Id == userIdFromToken && chat.User2Id == userId
+                    || chat.User2Id == userIdFromToken && chat.User1Id == userId);
+                if (chat != null)
+                    return Ok(chat.Id);
+            }
 
             User? user = await _userManager.FindByIdAsync(userIdFromToken);
             User? user2 = await _userManager.FindByIdAsync(userId);
@@ -88,7 +109,7 @@ namespace OmegaStreamWebAPI.Controllers
                 User1 = user,
                 User2 = user2,
             };
-            await _userChatsRepository.Add(userChat);
+            await _repo.AddAsync(userChat);
 
             return Ok(userChat.Id);
         }

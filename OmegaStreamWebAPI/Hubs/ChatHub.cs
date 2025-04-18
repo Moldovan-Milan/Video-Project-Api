@@ -13,15 +13,17 @@ namespace OmegaStreamWebAPI.Hubs
     {
         private static readonly ConcurrentDictionary<string, string> _connectedUsers = new ConcurrentDictionary<string, string>();
 
-        private readonly IUserChatsRepository _userChatsRepository;
-        private readonly IChatMessageRepository _chatMessageRepository;
+        private readonly IGenericRepository _repo;
+        //private readonly IUserChatsRepository _userChatsRepository;
+        //private readonly IChatMessageRepository _chatMessageRepository;
         private readonly IEncryptionHelper _encryptionHelper;
 
-        public ChatHub(IUserChatsRepository userChatsRepository, IChatMessageRepository chatMessageRepository, IEncryptionHelper encryptionHelper)
+        public ChatHub(IEncryptionHelper encryptionHelper, IGenericRepository repo)
         {
-            _userChatsRepository = userChatsRepository;
-            _chatMessageRepository = chatMessageRepository;
+            //_userChatsRepository = userChatsRepository;
+            //_chatMessageRepository = chatMessageRepository;
             _encryptionHelper = encryptionHelper;
+            _repo = repo;
         }
 
         public override async Task OnConnectedAsync()
@@ -58,8 +60,7 @@ namespace OmegaStreamWebAPI.Hubs
             {
                 return;
             }
-
-            var chat = await _userChatsRepository.FindByIdAsync(chatId);
+            var chat = await _repo.FirstOrDefaultAsync<UserChats>(c => c.Id == chatId);
             if (chat == null)
                 return;
 
@@ -89,7 +90,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             chatMessage.Content = _encryptionHelper.Encrypt(content);
-            await _chatMessageRepository.Add(chatMessage);
+            await _repo.AddAsync(chatMessage);
         }
 
         public async Task RequestChatHistory(int chatId)
@@ -100,17 +101,18 @@ namespace OmegaStreamWebAPI.Hubs
                 throw new HubException("User is not authenticated.");
             }
 
-            var chat = await _userChatsRepository.FindByIdAsync(chatId);
+            var chat = await _repo.FirstOrDefaultAsync<UserChats>(c => c.Id == chatId);
             if (chat == null || (chat.User1Id != userId && chat.User2Id != userId))
             {
                 throw new HubException("Access denied: You are not a participant of this chat.");
             }
 
-            var chatMessages = await _chatMessageRepository.GetMessagesByChatId(chatId);
+            var chatMessages = await _repo.GetAllAsync<ChatMessage>(m => m.UserChatId == chatId);
             //if (chatMessages == null || !chatMessages.Any())
             //{
             //    throw new HubException("No messages found for this chat.");
             //}
+            
 
             chatMessages = chatMessages.Select(msg =>
             {

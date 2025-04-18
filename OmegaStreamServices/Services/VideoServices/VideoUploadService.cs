@@ -17,9 +17,7 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoUploadService : IVideoUploadService
     {
-
-        private readonly IVideoRepository _videoRepository;
-        private readonly IImageRepository _imageRepository;
+        private readonly IGenericRepository _repo;
         private readonly ICloudService _cloudServices;
         private readonly IConfiguration _configuration;
 
@@ -32,10 +30,8 @@ namespace OmegaStreamServices.Services.VideoServices
 
         private readonly List<string> supportedImageFormats = new List<string> { "image/png", "image/jpg", "image/jpeg" };
         private readonly long maxThumbnailFileSize = 3145728; // 3 MB
-        public VideoUploadService(IVideoRepository videoRepository, IImageRepository imageRepository, ICloudService cloudServices, IConfiguration configuration)
+        public VideoUploadService(ICloudService cloudServices, IConfiguration configuration, IGenericRepository repo)
         {
-            _videoRepository = videoRepository;
-            _imageRepository = imageRepository;
             _cloudServices = cloudServices;
             _configuration = configuration;
 
@@ -53,6 +49,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 videoSplitTime = vSplitTime;
             if (int.TryParse(_configuration["VideoService:ThumbnailSplitTime"], out int tSplitTime))
                 thumbnailSplitTime = tSplitTime;
+            _repo = repo;
         }
 
         /// <summary>
@@ -141,7 +138,11 @@ namespace OmegaStreamServices.Services.VideoServices
         {
             bool isShort = height > width && duration <= new TimeSpan(0, 3, 0);
 
-            Image image = await _imageRepository.FindImageByPath(uniqueFileName);
+            Image? image = await _repo.FirstOrDefaultAsync<Image>(x => x.Path == uniqueFileName);
+            if (image == null)
+            {
+                throw new InvalidOperationException("Image not found in the database.");
+            }
             Video video = new Video
             {
                 Path = uniqueFileName,
@@ -155,7 +156,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 UserId = userId
             };
 
-            await _videoRepository.Add(video);
+            await _repo.AddAsync(video);
         }
 
         public async Task SaveImageToDatabase(string fileName, string extension)
@@ -165,7 +166,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 Path = fileName,
                 Extension = extension
             };
-            await _imageRepository.Add(image);
+            await _repo.AddAsync(image);
         }
 
         public async Task UploadVideoToR2(string folderName)

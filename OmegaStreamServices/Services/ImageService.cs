@@ -11,18 +11,18 @@ namespace OmegaStreamServices.Services
 {
     public class ImageService : IImageService
     {
+        private readonly IGenericRepository _repo;
         private readonly ICloudService _cloudService;
-        private readonly IImageRepository _imageRepository;
 
-        public ImageService(ICloudService cloudService, IImageRepository imageRepository)
+        public ImageService(ICloudService cloudService, IGenericRepository repo)
         {
             _cloudService = cloudService;
-            _imageRepository = imageRepository;
+            _repo = repo;
         }
 
         public async Task<(Stream?, string? contentType)> GetImageStreamByIdAsync(string cloudPath, int id)
         {
-            var image = await _imageRepository.FindByIdAsync(id);
+            var image = await _repo.FirstOrDefaultAsync<Image>(i => i.Id == id);
             if (image == null)
                 return (null, null);
             return await GetStream(cloudPath, image);
@@ -30,7 +30,7 @@ namespace OmegaStreamServices.Services
 
         public async Task<(Stream?, string? contentType)> GetImageStreamByPathAsync(string cloudPath, string path)
         {
-            var image = await _imageRepository.FindImageByPath(path);
+            var image = await _repo.FirstOrDefaultAsync<Image>(i => i.Path == path);
             if (image == null)
                 return (null, null);
             return await GetStream(path, image);
@@ -45,7 +45,7 @@ namespace OmegaStreamServices.Services
         public async Task<string?> SaveImage(string cloudPath, Stream imageStream)
         {
             string fileName = Guid.NewGuid().ToString();
-            await _imageRepository.Add(new Image { Path = fileName, Extension = "png" });
+            await _repo.AddAsync(new Image { Path = fileName, Extension = "png" });
             return await SaveImage(cloudPath, fileName, imageStream);
         }
 

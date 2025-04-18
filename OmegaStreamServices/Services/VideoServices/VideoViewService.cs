@@ -13,18 +13,17 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoViewService : IVideoViewService
     {
-
+        private readonly IGenericRepository _repo;
         private readonly IVideoViewRepository _videoViewRepository;
-        private readonly IVideoRepository _videoRepository;
         private readonly UserManager<User> _userManager;
         private readonly IMapper _mapper;
 
-        public VideoViewService(IVideoViewRepository videoViewRepository, IVideoRepository videoRepository, UserManager<User> userManager, IMapper mapper)
+        public VideoViewService(IVideoViewRepository videoViewRepository, UserManager<User> userManager, IMapper mapper, IGenericRepository repo)
         {
             _videoViewRepository = videoViewRepository;
-            _videoRepository = videoRepository;
             _userManager = userManager;
             _mapper = mapper;
+            _repo = repo;
         }
 
         public async Task<List<VideoViewDto>> GetUserViewHistory(string userId, int? pageNumber, int? pageSize)
@@ -45,11 +44,13 @@ namespace OmegaStreamServices.Services.VideoServices
 
         public async Task<bool> ValidateView(VideoView view)
         {
-            view.Video = await _videoRepository.GetVideoWithInclude(view.VideoId);
-            if (view.Video == null)
+            Video? video = await _repo.FirstOrDefaultAsync<Video>(predicate: x => x.Id == view.VideoId);
+
+            if (video == null)
             {
                 return false;
             }
+            view.Video = video;
 
             if (view.UserId == null)
             {
@@ -64,7 +65,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 {
                     _videoViewRepository.AddGuestView(view);
                     view.Video.Views++;
-                    _videoRepository.Update(view.Video);
+                    await _repo.UpdateAsync(view.Video);
                     return true;
                 }
             }
@@ -83,7 +84,8 @@ namespace OmegaStreamServices.Services.VideoServices
                 {
                     await _videoViewRepository.AddLoggedInVideoView(view);
                     view.Video.Views++;
-                    _videoRepository.Update(view.Video);
+                    //_videoRepository.Update(view.Video);
+                    await _repo.UpdateAsync(view.Video);
                     return true;
                 }
             }

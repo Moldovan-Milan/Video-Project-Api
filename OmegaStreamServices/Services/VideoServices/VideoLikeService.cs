@@ -11,23 +11,26 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoLikeService : IVideoLikeService
     {
-        private readonly IVideoLikesRepository _videoLikesRepository;
+        private readonly IGenericRepository _repo;
 
-        public VideoLikeService(IVideoLikesRepository videoLikesRepository, UserManager<User> userManager)
+        public VideoLikeService(UserManager<User> userManager, IGenericRepository repo)
         {
-            _videoLikesRepository = videoLikesRepository;
+            _repo = repo;
         }
 
         public async Task<string> IsUserLikedVideo(string userId, int videoId)
         {
-            return await _videoLikesRepository.IsLikedByUser(userId, videoId);
+            var like = await _repo.FindWithKeysAsync<VideoLikes>(userId, videoId);
+            if (like == null)
+                return "none";
+            return like.IsDislike ? "dislike" : "like";
         }
 
         public async Task<bool> UpdateUserLikedVideo(int videoId, string userId, string likeValue)
         {
             try
             {
-                var videoLikes = await _videoLikesRepository.GetVideoLike(userId, videoId);
+                var videoLikes = await _repo.FirstOrDefaultAsync<VideoLikes>(x => x.VideoId == videoId && x.UserId == userId);
 
                 if (videoLikes == null)
                 {
@@ -46,18 +49,18 @@ namespace OmegaStreamServices.Services.VideoServices
                         IsDislike = likeValue == "dislike"
                     };
 
-                    await _videoLikesRepository.Add(videoLikes);
+                    await _repo.AddAsync(videoLikes);
                 }
                 else
                 {
                     if (likeValue == "none")
                     {
-                        _videoLikesRepository.Delete(videoLikes);
+                        await _repo.DeleteAsync(videoLikes);
                         return true;
                     }
 
                     videoLikes.IsDislike = likeValue == "dislike";
-                    _videoLikesRepository.Update(videoLikes);
+                    await _repo.UpdateAsync(videoLikes);
                 }
 
                 return true;
@@ -67,6 +70,5 @@ namespace OmegaStreamServices.Services.VideoServices
                 return false;
             }
         }
-
     }
 }

@@ -13,40 +13,34 @@ namespace OmegaStreamServices.Services.VideoServices
 {
     public class VideoManagementService : IVideoManagementService
     {
-        private readonly IVideoRepository _videoRepository;
+        private readonly IGenericRepository _repo;
+
         private readonly ICloudService _cloudService;
-        private readonly IVideoLikesRepository _videoLikesRepository;
-        private readonly IVideoViewRepository _videoViewRepository;
-        private readonly ICommentRepositroy _commentRepository;
-        private readonly IImageRepository _imageRepository;
         private readonly IImageService _imageService;
-        public VideoManagementService(IVideoRepository videoRepository, ICloudService cloudService, IVideoLikesRepository videoLikesRepository, IVideoViewRepository videoViewRepository, ICommentRepositroy commentRepository, IImageRepository imageRepository, IImageService imageService)
+        public VideoManagementService(ICloudService cloudService, IImageService imageService, IGenericRepository repo)
         {
-            _videoRepository = videoRepository;
-            _cloudService = cloudService;
-            _videoLikesRepository = videoLikesRepository;
-            _videoViewRepository = videoViewRepository;
-            _commentRepository = commentRepository;
-            _imageRepository = imageRepository;
             _imageService = imageService;
+            _cloudService = cloudService;
+            _repo = repo;
         }
         public async Task DeleteVideoWithAllRelations(int id)
         {
-            Video video = await _videoRepository.GetVideoWithInclude(id);
+            Video? video = await _repo.FirstOrDefaultAsync<Video>(
+                predicate: x => x.Id == id
+                );
+
             if (video == null)
             {
                 throw new Exception($"Video with ID {id} not found.");
             }
 
-            var commentsTask = await _commentRepository.GetAllCommentsByVideo(video.Id);
-            var reactionsTask = await _videoLikesRepository.GetAllReactionsByVideo(video.Id);
-            var viewsTask = await _videoViewRepository.GetAllVideoViewsByVideo(video.Id);
+            var comments = await _repo.GetAllAsync<Comment>(x => x.VideoId == video.Id);
+            var reactions = await _repo.GetAllAsync<VideoLikes>(x => x.VideoId == video.Id);
+            var views = await _repo.GetAllAsync<VideoView>(x => x.VideoId == video.Id);
 
-            //await Task.WhenAll(commentsTask, reactionsTask, viewsTask);
-
-            await _commentRepository.DeleteMultipleAsync(commentsTask);
-            await _videoLikesRepository.DeleteMultipleAsync(reactionsTask);
-            await _videoViewRepository.DeleteMultipleAsync(viewsTask);
+            await _repo.DeleteMultipleAsync(comments);
+            await _repo.DeleteMultipleAsync(reactions);
+            await _repo.DeleteMultipleAsync(views);
 
             try
             {
@@ -66,21 +60,23 @@ namespace OmegaStreamServices.Services.VideoServices
                 Console.WriteLine($"Warning: Failed to delete video thumbnail {video.Thumbnail.Path}. Error: {ex.Message}");
             }
 
-            //await Task.WhenAll(deleteCommentsTask, deleteReactionsTask, deleteViewsTask);
+            await _repo.DeleteAsync(video);
 
-            await _videoRepository.DeleteVideoWithRelationsAsync(video);
-
-            var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
+            //var image = await _imageRepository.FindByIdAsync(video.ThumbnailId);
+            var image = await _repo.FirstOrDefaultAsync<Image>(predicate: x => x.Id == video.ThumbnailId);
             if (image != null)
             {
-                await _imageRepository.Delete(image);
+                await _repo.DeleteAsync(image);
             }
         }
 
 
         public async Task EditVideo(int id, string? title, string? description, IFormFile? image)
         {
-            Video video = await _videoRepository.GetVideoWithInclude(id);
+            //Video video = await _videoRepository.GetVideoWithInclude(id);
+            Video? video = await _repo.FirstOrDefaultAsync<Video>(
+                predicate: x => x.Id == id,
+                include: x => x.Include(x => x.Thumbnail));
             if (video == null)
             {
                 throw new KeyNotFoundException($"Video with ID {id} not found.");
@@ -99,7 +95,7 @@ namespace OmegaStreamServices.Services.VideoServices
                 await _imageService.ReplaceImage("images/thumbnails", video.Thumbnail.Path, image.OpenReadStream());
                 
             }
-            _videoRepository.Update(video);
+            await _repo.UpdateAsync(video);
         }
 
     }

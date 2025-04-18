@@ -125,28 +125,22 @@ namespace OmegaStreamWebAPI
             });
 
             // Repositories
+            builder.Services.AddScoped<IGenericRepository, GenericRepository>();
+
             builder.Services.AddScoped<IVideoRepository, VideoRepository>();
-            builder.Services.AddScoped<IImageRepository, ImageRepository>();
-            builder.Services.AddScoped<IVideoLikesRepository, VideoLikesRepository>();
-            builder.Services.AddScoped<ICommentRepositroy, CommentRepository>();
             builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
             builder.Services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
             builder.Services.AddSingleton<ILiveStreamRepository, LiveStreamRepository>();
-            builder.Services.AddScoped<IUserThemeRepository, UserThemeRepository>();
 
-            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
-            builder.Services.AddScoped<IUserChatsRepository, UserChatsRepository>();
             builder.Services.AddScoped<IVideoViewRepository, VideoViewRepository>();
             builder.Services.AddSingleton<IUserVideoUploadRepositroy, UserVideoUploadRepository>();
 
 
             // Custom services
             builder.Services.AddScoped<IVideoUploadService, VideoUploadService>();
-            //builder.Services.AddScoped<IFileManagerService, FileManagerService>();
             builder.Services.AddScoped<ICloudService, CloudService>();
-            builder.Services.AddScoped<IAvatarService, AvatarService>();
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVideoMetadataService, VideoMetadataService>();
             builder.Services.AddScoped<IVideoLikeService, VideoLikeService>();

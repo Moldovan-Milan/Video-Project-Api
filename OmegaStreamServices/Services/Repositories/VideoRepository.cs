@@ -2,32 +2,30 @@
 using OmegaStreamServices.Data;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Base;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace OmegaStreamServices.Services.Repositories
 {
-    public class VideoRepository : BaseRepository<Video>, IVideoRepository
+    public class VideoRepository : IVideoRepository
     {
-        private readonly Random random;
+        private readonly AppDbContext _context;
+        private readonly Random random = new();
 
-        public VideoRepository(AppDbContext context) : base(context)
+        public VideoRepository(AppDbContext context)
         {
-            random = new Random();
+            _context = context;
         }
 
         public async Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize, bool isShorts)
         {
-            return await Task.FromResult(_dbSet
+            var videos = await _context.Videos
                 .Where(x => x.IsShort == isShorts)
-                .Include(v => v.User)
-                .ThenInclude(u => u.Avatar)
+                .Include(v => v.User).ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
                 .Include(v => v.VideoLikes)
-                .AsEnumerable() // Exit from sql query
+                .ToListAsync();
+
+            return videos
                 .OrderByDescending(v => CalculateScore(
                     v.Views,
                     v.VideoLikes.Count(l => !l.IsDislike),
@@ -37,20 +35,22 @@ namespace OmegaStreamServices.Services.Repositories
                     (DateTime.UtcNow - v.Created).TotalHours))
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .ToList());
+                .ToList();
         }
 
         public async Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize, bool isShorts)
         {
             name = name.ToLower();
-            return await Task.FromResult(_dbSet
+
+            var videos = await _context.Videos
                 .Where(v => v.Title.ToLower().Contains(name) && v.IsShort == isShorts)
-                .Include(v => v.User)
-                .ThenInclude(u => u.Avatar)
+                .Include(v => v.User).ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
                 .Include(v => v.Comments)
                 .Include(v => v.VideoLikes)
-                .AsEnumerable() // Exit from sql query
+                .ToListAsync();
+
+            return videos
                 .OrderByDescending(v => CalculateScore(
                     v.Views,
                     v.VideoLikes.Count(l => !l.IsDislike),
@@ -60,17 +60,15 @@ namespace OmegaStreamServices.Services.Repositories
                     (DateTime.UtcNow - v.Created).TotalHours))
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .ToList());
+                .ToList();
         }
 
         public async Task<Video?> GetVideoWithInclude(int id)
         {
-            return await _dbSet
-                .Include(v => v.User)
-                .ThenInclude(u => u.Avatar)
+            return await _context.Videos
+                .Include(v => v.User).ThenInclude(u => u.Avatar)
                 .Include(v => v.Thumbnail)
-                .Include(v => v.Comments)
-                    .ThenInclude(c => c.User)
+                .Include(v => v.Comments).ThenInclude(c => c.User)
                 .FirstOrDefaultAsync(v => v.Id == id);
         }
 
@@ -79,7 +77,7 @@ namespace OmegaStreamServices.Services.Repositories
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                _dbSet.Remove(video);
+                _context.Videos.Remove(video);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
             }
@@ -98,7 +96,7 @@ namespace OmegaStreamServices.Services.Repositories
 
             if (hours < 1)
                 score *= 2;
-            if (random.Next(0, 99) == 0) // 1% chance to increase the points by 10x
+            if (random.Next(0, 99) == 0)
                 score *= 10;
 
             return score;

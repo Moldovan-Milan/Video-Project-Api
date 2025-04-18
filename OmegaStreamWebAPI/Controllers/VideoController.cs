@@ -19,6 +19,7 @@ namespace OmegaStreamWebAPI.Controllers
     [ApiController]
     public class VideoController : ControllerBase
     {
+        private readonly IGenericRepository _repo;
         private readonly IVideoUploadService _videoUploadService;
         private readonly ICommentService _commentService;
         private readonly IVideoMetadataService _videoMetadataService;
@@ -29,11 +30,10 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IEncryptionHelper _encryptionHelper;
         private readonly ILogger<VideoController> _logger;
         private readonly UserManager<User> _userManager;
-        private readonly ICommentRepositroy _commentRepository;
         private readonly IUserVideoUploadRepositroy _userVideoUploadRepositroy;
         private readonly List<string> supportedFormats = new List<string> { ".mp4", ".mov" };
 
-        public VideoController(IVideoUploadService videoUploadService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, ICommentRepositroy commentRepository, IUserVideoUploadRepositroy userVideoUploadRepositroy)
+        public VideoController(IVideoUploadService videoUploadService, ILogger<VideoController> logger, ICommentService commentService, IVideoMetadataService videoMetadataService, IVideoLikeService videoLikeService, ISubscriptionRepository userSubscribeRepository, IVideoViewService videoViewService, IEncryptionHelper encryptionHelper, IVideoManagementService videoManagementService, UserManager<User> userManager, IUserVideoUploadRepositroy userVideoUploadRepositroy, IGenericRepository repo)
         {
             _videoUploadService = videoUploadService;
             _logger = logger;
@@ -45,8 +45,8 @@ namespace OmegaStreamWebAPI.Controllers
             _encryptionHelper = encryptionHelper;
             _videoManagementService = videoManagementService;
             _userManager = userManager;
-            _commentRepository = commentRepository;
             _userVideoUploadRepositroy = userVideoUploadRepositroy;
+            _repo = repo;
         }
 
         #region Metadata
@@ -126,13 +126,20 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Unauthorized();
                 }
+                if (video == null)
+                {
+                    return NotFound("Video not found.");
+                }
+
                 // Like
                 _logger.LogInformation("Get the value of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
                 string likeResult = await _videoLikeService.IsUserLikedVideo(userIdFromToken, videoId);
                 _logger.LogInformation("Get the subscribe of the user like for user: {UserId}, video: {VideoId}", userIdFromToken, videoId);
 
                 // Subscribe
-                bool subscribeResult = await _userSubscribeRepository.IsUserSubscribedToChanel(userIdFromToken, video.UserId);
+                bool subscribeResult = await _repo.AnyAsync<Subscription>(
+                    predicate: x => x.FollowerId == userIdFromToken && x.FollowedUserId == video.UserId);
+                //bool subscribeResult = await _userSubscribeRepository.IsUserSubscribedToChanel(userIdFromToken, video.UserId);
 
                 return Ok(new { likeResult, subscribeResult });
             }
@@ -153,7 +160,8 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return BadRequest();
                 }
-                return Ok(await _userSubscribeRepository.IsUserSubscribedToChanel(userIdFromToken, followedId));
+                bool result = await _repo.AnyAsync<Subscription>(predicate: x => x.FollowerId == userIdFromToken && x.FollowedUserId == followedId);
+                return Ok(result);
 
             }
             catch (Exception ex)
@@ -285,8 +293,8 @@ namespace OmegaStreamWebAPI.Controllers
                     return Unauthorized("You are not logged in!");
                 }
 
-                var comment = await _commentRepository.FindByIdAsync(commentId);
-                if(comment == null)
+                var comment = await _repo.FirstOrDefaultAsync<Comment>(x => x.Id == commentId);
+                if (comment == null)
                 {
                     return NotFound($"Comment with id: {commentId} Not Found");
                 }
@@ -297,8 +305,8 @@ namespace OmegaStreamWebAPI.Controllers
                     return Unauthorized("You are not authorized to edit this comment.");
                 }
                 comment.Content = content;
-                _commentRepository.Update(comment);
-                
+                await _repo.UpdateAsync(comment);
+
                 return NoContent();
             }
             catch(Exception e)
@@ -319,7 +327,7 @@ namespace OmegaStreamWebAPI.Controllers
                     return Unauthorized("You are not logged in!");
                 }
 
-                var comment = await _commentRepository.FindByIdAsync(commentId);
+                var comment = await _repo.FirstOrDefaultAsync<Comment>(x => x.Id == commentId);
                 if (comment == null)
                 {
                     return NotFound($"Comment with id: {commentId} Not Found");
@@ -330,7 +338,7 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Unauthorized("You are not authorized to edit this comment.");
                 }
-                _commentRepository.Delete(comment);
+                await _repo.DeleteAsync(comment);
 
                 return NoContent();
             }

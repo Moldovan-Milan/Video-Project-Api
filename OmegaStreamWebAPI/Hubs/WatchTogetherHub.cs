@@ -14,17 +14,19 @@ namespace OmegaStreamWebAPI.Hubs
 {
     public class WatchTogetherHub : BaseHub
     {
+        private readonly IGenericRepository _repo;
         private readonly UserManager<User> _userManager;
         private readonly IVideoRepository _videoRepository;
         private readonly IRoomStateManager _roomManager;
         private readonly IMapper _mapper;
 
-        public WatchTogetherHub(UserManager<User> userManager, IRoomStateManager roomManager, IMapper mapper, IVideoRepository videoRepository)
+        public WatchTogetherHub(UserManager<User> userManager, IRoomStateManager roomManager, IMapper mapper, IVideoRepository videoRepository, IGenericRepository repo)
         {
             _userManager = userManager;
             _roomManager = roomManager;
             _mapper = mapper;
             _videoRepository = videoRepository;
+            _repo = repo;
         }
 
         private async Task SendErrorMessage(string connectionId, string message)
@@ -324,7 +326,13 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task AddVideoToPlaylist(string roomId, int videoId)
         {
-            var video = await _videoRepository.GetVideoWithInclude(videoId);
+            //var video = await _videoRepository.GetVideoWithInclude(videoId);
+            var video = _repo.FirstOrDefaultAsync<Video>(
+                    x => x.Id == videoId,
+                    include: x => x.Include(x => x.User)
+                    .ThenInclude(x => x.Avatar)
+                    .Include(x => x.Thumbnail)
+                    );
             if (video == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "Video not found");
@@ -354,7 +362,10 @@ namespace OmegaStreamWebAPI.Hubs
         /// <returns></returns>
         public async Task StartVideo(string roomId, int videoId)
         {
-            var video = await _videoRepository.FindByIdAsync(videoId);
+            var video = await _repo.FirstOrDefaultAsync<Video>(
+                predicate: x => x.Id == videoId,
+                include: x => x.Include(x => x.User).Include(x => x.Thumbnail));
+
             if (video == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "Video not found");

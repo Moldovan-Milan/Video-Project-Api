@@ -13,45 +13,36 @@ using System.Text;
 
 public class UserService : IUserService
 {
+    private readonly IGenericRepository _repo;
     private readonly UserManager<User> _userManager;
     private readonly SignInManager<User> _signInManager;
-    private readonly IConfiguration _configuration;
     private readonly IMapper _mapper;
     private readonly AppDbContext _context;
-    private readonly IImageRepository _imageRepository;
-    private readonly IUserThemeRepository _userThemeRepository;
     private readonly IImageService _imageService;
     private readonly IVideoManagementService _videoManagementService;
 
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
+   private readonly IRefreshTokenRepository _refreshTokenRepository;
 
     private readonly ICloudService _cloudService;
-    private readonly TokenGenerator _tokenGenerator;
 
 
     public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
-        SignInManager<User> signInManager, IConfiguration configuration,
-
+        SignInManager<User> signInManager,
         IMapper mapper,
         AppDbContext context,
-        IImageRepository imageRepository, IUserThemeRepository userThemeRepository, ICloudService cloudService, IImageService imageService,
-        IVideoManagementService videoManagementService,
-        TokenGenerator tokenGenerator, IRefreshTokenRepository refreshTokenRepository)
+         ICloudService cloudService, IImageService imageService,
+        IVideoManagementService videoManagementService, IRefreshTokenRepository refreshTokenRepository, IGenericRepository repo)
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _configuration = configuration;
         _mapper = mapper;
 
         _context = context;
-
-        _imageRepository = imageRepository;
-        _userThemeRepository = userThemeRepository;
         _cloudService = cloudService;
         _imageService = imageService;
         _videoManagementService = videoManagementService;
 
-        _tokenGenerator = tokenGenerator;
+        _repo = repo;
         _refreshTokenRepository = refreshTokenRepository;
     }
 
@@ -59,7 +50,8 @@ public class UserService : IUserService
     {
 
         string avatarFileName = await _imageService.SaveImage("images/avatars", avatar);
-        var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
+        //var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);
+        var avatarImage = await _repo.FirstOrDefaultAsync<Image>(x => x.Path == avatarFileName);
         var user = new User
         {
             UserName = username,
@@ -98,15 +90,6 @@ public class UserService : IUserService
     {
         await _signInManager.SignOutAsync();
     }
-
-    public async Task<(Stream file, string contentType)> GetUserAvatarImage(int id)
-    {
-        return await _imageService.GetImageStreamByIdAsync("images/avatars", id);
-        //return await _avatarService.GetAvatarAsync(id);
-    }
-
-
-
     public async Task<List<User>> GetUsersAsync(int? pageNumber, int? pageSize)
     {
         pageNumber = pageNumber ?? 1;
@@ -231,7 +214,7 @@ public class UserService : IUserService
             {
                 if (userTheme.BannerId != null)
                 {
-                    var existingImage = await _imageRepository.FindByIdAsync(userTheme.BannerId.Value);
+                    var existingImage = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == userTheme.BannerId.Value);
                     if (existingImage != null)
                     {
                         if (!await _imageService.ReplaceImage("images/banner", existingImage.Path, bannerImage))
@@ -246,17 +229,16 @@ public class UserService : IUserService
                     if (string.IsNullOrEmpty(fileName))
                         return false;
 
-                    var image = await _imageRepository.FindImageByPath(fileName);
+                    var image = await _repo.FirstOrDefaultAsync<Image>(x => x.Path == fileName);
                     if (image != null)
                     {
                         userTheme.BannerId = image.Id;
                     }
                 }
             }
-            _userThemeRepository.Update(userTheme);
+            await _repo.UpdateAsync(userTheme);
             user.UserTheme = userTheme;
             await _userManager.UpdateAsync(user);
-
 
             return true;
         }
@@ -286,7 +268,8 @@ public class UserService : IUserService
                 var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
                 if (user == null) return;
 
-                var videos = _context.Videos.Where(x => x.UserId == userId);
+                //var videos = _context.Videos.Where(x => x.UserId == userId);
+                var videos = await _repo.GetAllAsync<Video>(x => x.UserId == userId);
                 foreach (var video in videos)
                 {
                     try
@@ -299,25 +282,23 @@ public class UserService : IUserService
                     }
                 }
 
-                _context.Comments.RemoveRange(_context.Comments.Where(x => x.UserId == userId));
-                _context.Subscriptions.RemoveRange(_context.Subscriptions.Where(x => x.FollowerId == userId || x.FollowedUserId == userId));
-                _context.VideoLikes.RemoveRange(_context.VideoLikes.Where(x => x.UserId == userId));
-                _context.VideoViews.RemoveRange(_context.VideoViews.Where(x => x.UserId == userId));
+                await _repo.DeleteMultipleAsync<Comment>(x => x.UserId == userId);
+                await _repo.DeleteMultipleAsync<Subscription>(x => x.FollowerId == userId || x.FollowedUserId == userId);
+                await _repo.DeleteMultipleAsync<VideoLikes>(x => x.UserId == userId);
+                await _repo.DeleteMultipleAsync<VideoView>(x => x.UserId == userId);
 
-                var chatIds = _context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId)
-                    .Select(x => x.Id).ToList();
-                _context.ChatMessages.RemoveRange(_context.ChatMessages.Where(x => chatIds.Contains(x.UserChatId)));
-                _context.UserChats.RemoveRange(_context.UserChats.Where(x => x.User1Id == userId || x.User2Id == userId));
+                var chats = await _repo.GetAllAsync<UserChats>(x => x.User1Id == userId || x.User2Id == userId);
+                await _repo.DeleteMultipleAsync<ChatMessage>(x => chats.Select(c => c.Id).Contains(x.UserChatId));
+                await _repo.DeleteMultipleAsync<UserChats>(x => x.User1Id == userId || x.User2Id == userId);
 
-                //_context.RefreshTokens.RemoveRange(_context.RefreshTokens.Where(x => x.UserId == userId));
 
                 if (user.Avatar != null && user.Avatar.Path != "default_avatar")
                 {
                     try
                     {
-                        var avatar = await _imageRepository.FindByIdAsync(user.AvatarId);
+                        var avatar = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == user.AvatarId);
                         await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
-                        _imageRepository.Delete(avatar);
+                        await _repo.DeleteAsync<Image>(avatar);
                     }
                     catch (Exception ex)
                     {
