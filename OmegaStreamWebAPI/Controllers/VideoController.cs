@@ -239,6 +239,9 @@ namespace OmegaStreamWebAPI.Controllers
             try
             {
                 var videos = await _videoMetadataService.GetVideosByName(searchString, pageNumber, pageSize, false);
+                if (videos == null)
+                    return NotFound();
+
                 bool hasMore = videos.Count == pageSize;
                 return Ok(new
                 {
