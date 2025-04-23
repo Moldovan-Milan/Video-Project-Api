@@ -63,15 +63,6 @@ namespace OmegaStreamServices.Services.Repositories
                 .ToList();
         }
 
-        public async Task<Video?> GetVideoWithInclude(int id)
-        {
-            return await _context.Videos
-                .Include(v => v.User).ThenInclude(u => u.Avatar)
-                .Include(v => v.Thumbnail)
-                .Include(v => v.Comments).ThenInclude(c => c.User)
-                .FirstOrDefaultAsync(v => v.Id == id);
-        }
-
         public async Task DeleteVideoWithRelationsAsync(Video video)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
@@ -96,7 +87,7 @@ namespace OmegaStreamServices.Services.Repositories
 
             if (hours < 1)
                 score *= 2;
-            if (random.Next(0, 99) == 0)
+            if (random.Next(0, 99) == 10)
                 score *= 10;
 
             return score;

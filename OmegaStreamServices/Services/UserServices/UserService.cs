@@ -26,7 +26,7 @@ public class UserService : IUserService
     private readonly ICloudService _cloudService;
 
 
-    public UserService(UserManager<User> userManager, IPasswordHasher<User> passwordHasher,
+    public UserService(UserManager<User> userManager,
         SignInManager<User> signInManager,
         IMapper mapper,
         AppDbContext context,
@@ -71,18 +71,16 @@ public class UserService : IUserService
 
     }
 
-    public async Task<(string refreshToken, User)> LoginUser(string email, string password, bool rememberMe)
+    public async Task<(string? refreshToken, User)> LoginUser(string email, string password, bool rememberMe)
     {
-        var user = await _userManager.FindByEmailAsync(email);
+        var user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Email == email);
         if (user == null)
             return (null, null)!;
 
         var result = await _signInManager.PasswordSignInAsync(user.UserName, password, rememberMe, true);
         if (!result.Succeeded) return (null, null)!;
 
-
-        //string accessToken = await _tokenGenerator.GenerateJwtToken(user.Id);
-        string refreshToken = rememberMe ? await GenerateRefreshToken(user.Id) : null!;
+        string? refreshToken = rememberMe ? await GenerateRefreshToken(user.Id) : null;
         return (refreshToken, user);
     }
 
@@ -138,10 +136,12 @@ public class UserService : IUserService
         }
 
         User? user = await _userManager.Users
+            .Include(x => x.Avatar)
             .Include(x => x.Videos)
             .ThenInclude(v => v.Thumbnail)
             .Include(x => x.Followers)
             .Include(x => x.UserTheme)
+            .ThenInclude(x => x.BannerImg)
             .FirstOrDefaultAsync(x => x.Id == userId);
 
         if (user != null)

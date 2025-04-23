@@ -49,6 +49,7 @@ namespace OmegaStreamServices.Services.VideoServices
                     predicate: x => x.Id == id,
                     include: x => x.Include(x => x.User)
                                 .ThenInclude(x => x.Avatar)
+                                .Include(x => x.Thumbnail)
                                 .Include(x => x.Comments)
                                 .ThenInclude(x => x.User)
                                 .ThenInclude(x => x.Avatar)

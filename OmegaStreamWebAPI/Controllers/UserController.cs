@@ -48,6 +48,7 @@ namespace OmegaStreamWebAPI.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllUsers([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             try
@@ -169,7 +170,7 @@ namespace OmegaStreamWebAPI.Controllers
         [Route("profile")]
         [HttpGet]
         [Authorize]
-        // TODO: Profilszerkesztéshez esetleg plusz adatotak is elküldeni
+        // Todo: Más információkat is elküldeni (pl.: jelszó visszaállítása stb.)
         public async Task<IActionResult> Profile([FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -179,55 +180,27 @@ namespace OmegaStreamWebAPI.Controllers
                 return Unauthorized("You are not logged in!");
             }
 
-            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
+            UserWithVideosDto? user = await _userService.GetUserProfileWithVideos(userIdFromToken, pageNumber, pageSize);
 
             return user == null ? NotFound() : Ok(_mapper.Map<UserWithVideosDto>(user));
-        }
-
-        [HttpGet]
-        [Route("banner/{id}")]
-        public async Task<IActionResult> GetBannerImage(int id)
-        {
-            try
-            {
-                (Stream file, string extension) = await _userService.GetBannerAsync(id);
-                return File(file, extension);
-
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
         }
 
         [Route("profile/{id}")]
         [HttpGet]
         public async Task<IActionResult> GetUserProfileWithVideos(string id, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
         {
-            UserWithVideosDto user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
+            UserWithVideosDto? user = await _userService.GetUserProfileWithVideos(id, pageNumber, pageSize);
+            if (user == null)
+            {
+                return NotFound();
+            }
             bool hasMore = user.Videos.Count == pageSize;
 
-            return user == null ? NotFound() : Ok(new
+            return Ok(new
             {
                 user = _mapper.Map<UserWithVideosDto>(user),
                 hasMore = hasMore
             });
-        }
-
-        [Route("avatar/{id}")]
-        [HttpGet]
-        public async Task<IActionResult> GetAvatarImage(int id)
-        {
-            try
-            {
-                (Stream file, string extension) = await _imageService.GetImageStreamByIdAsync("images/avatars", id);
-                return File(file, extension);
-
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
         }
 
         [Authorize]

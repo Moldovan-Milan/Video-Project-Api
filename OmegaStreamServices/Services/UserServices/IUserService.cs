@@ -8,7 +8,7 @@ namespace OmegaStreamServices.Services.UserServices
         public interface IUserService
         {
                 Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar);
-                Task<(string refreshToken, User)> LoginUser(string email, string password, bool rememberMe);
+                Task<(string? refreshToken, User)> LoginUser(string email, string password, bool rememberMe);
                 Task LogoutUser();
 
                 /// <summary>
@@ -22,7 +22,7 @@ namespace OmegaStreamServices.Services.UserServices
                 Task<User?> GetUserWithFollowersById(string id);
                 Task<UserWithVideosDto?> GetUserProfileWithVideos(string userId, int? pageNumber, int? pageSize);
                 Task<List<UserDto?>> GetUsersByName(string name, int? pageNumber, int? pageSize);
-        Task<IdentityResult> UpdateUsernameAsync(User user, string newName);
+                Task<IdentityResult> UpdateUsernameAsync(User user, string newName);
 
                 Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor,
                      Stream? bannerImage, User user);

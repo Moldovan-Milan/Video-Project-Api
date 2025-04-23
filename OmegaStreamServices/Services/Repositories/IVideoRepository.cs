@@ -11,7 +11,6 @@ namespace OmegaStreamServices.Services.Repositories
     public interface IVideoRepository
     {
         Task<List<Video>> GetAllVideosWithIncludes(int pageNumber, int pageSize, bool isShorts);
-        Task<Video> GetVideoWithInclude(int id);
         Task<List<Video>> GetVideosByName(string name, int pageNumber, int pageSize, bool isShorts);
         Task DeleteVideoWithRelationsAsync(Video video);
     }
