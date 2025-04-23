@@ -79,6 +79,16 @@ namespace OmegaStreamServices.Services.Repositories
             }
         }
 
+        /// <summary>
+        /// Calculates the score of a video based on its views, likes, dislikes, comments, and age.
+        /// </summary>
+        /// <param name="V"> The number of views the video has received.</param>
+        /// <param name="L"> The number of likes the video has received.</param><param name="D">The number of
+        /// dislikes the video has received.</param>
+        /// <param name="C">The number of comments the video has received.</param>
+        /// <param name="time">The time since the video was created, in days.</param>
+        /// <param name="hours">The time since the video was created, in hours.</param>
+        /// <returns>A double representing the score of the video.</returns>
         private double CalculateScore(long V, int L, int D, int C, double time, double hours)
         {
             double safeTime = Math.Max(time, 1);
@@ -87,7 +97,7 @@ namespace OmegaStreamServices.Services.Repositories
 
             if (hours < 1)
                 score *= 2;
-            if (random.Next(0, 99) == 10)
+            if (random.Next(0, 99) <= 10)
                 score *= 10;
 
             return score;
