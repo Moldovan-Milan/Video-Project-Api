@@ -217,7 +217,7 @@ public class UserService : IUserService
                     var existingImage = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == userTheme.BannerId.Value);
                     if (existingImage != null)
                     {
-                        if (!await _imageService.ReplaceImage("images/banner", existingImage.Path, bannerImage))
+                        if (!await _imageService.ReplaceImage("images/banners", existingImage.Path, bannerImage))
                         {
                             return false;
                         }
