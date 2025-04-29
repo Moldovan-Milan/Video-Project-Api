@@ -44,7 +44,8 @@ namespace OmegaStreamWebAPI.Controllers
             var userChats = await _repo.GetAllAsync<UserChats>
                 (
                     filter: chat => chat.User1Id == userIdFromToken || chat.User2Id == userIdFromToken,
-                    include: chat => chat.Include(x => x.User1).Include(x => x.User2)
+                    include: chat => chat.Include(x => x.User1).ThenInclude(x => x.Avatar)
+                    .Include(x => x.User2).ThenInclude(x => x.Avatar)
                 );
 
             if (userChats != null)

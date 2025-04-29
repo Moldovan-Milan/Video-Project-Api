@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services.Repositories;
@@ -113,7 +114,7 @@ namespace OmegaStreamWebAPI.Hubs
         [Authorize]
         public async Task SendMessage(string userId, string message, string streamId)
         {
-            User? user = await _userManager.FindByIdAsync(userId);
+            User? user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");

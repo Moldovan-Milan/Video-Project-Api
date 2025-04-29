@@ -161,7 +161,6 @@ namespace OmegaStreamWebAPI.Controllers
                 Expires = DateTimeOffset.UtcNow.AddDays(-1)
             };
 
-            Response.Cookies.Append("AccessToken", "", cookieOptions);
             Response.Cookies.Append("RefreshToken", "", cookieOptions);
 
             return Ok("Logged out successfully.");

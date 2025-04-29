@@ -221,7 +221,7 @@ namespace OmegaStreamWebAPI
 
             // SignalR endpoint
             app.MapHub<ChatHub>("/chatHub").RequireCors("AllowSpecificOrigin").RequireAuthorization();
-            app.MapHub<WatchTogetherHub>("/watch").RequireCors("AllowSpecificOrigin");
+            app.MapHub<WatchTogetherHub>("/watch").RequireCors("AllowSpecificOrigin").RequireAuthorization();
             app.MapHub<LiveStreamHub>("/live").RequireCors("AllowSpecificOrigin");
 
 

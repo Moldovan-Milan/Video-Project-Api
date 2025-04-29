@@ -176,6 +176,7 @@ public class UserService : IUserService
         }
         var users = _userManager.Users
             .Where(x => x.UserName.ToLower().Contains(name.ToLower()))
+            .Include(x => x.Avatar)
             .Skip((pageNumber.Value - 1) * pageSize.Value)
             .Take(pageSize.Value)
             .ToList();
@@ -255,10 +256,6 @@ public class UserService : IUserService
         return await _imageService.SaveImage("images/banners", bannerStream);
     }
 
-    public async Task<(Stream file, string contentType)> GetBannerAsync(int bannerId)
-    {
-        return await _imageService.GetImageStreamByIdAsync("images/banners", bannerId);
-    }
     public async Task DeleteAccount(string userId)
     {
         using (var transaction = await _context.Database.BeginTransactionAsync())

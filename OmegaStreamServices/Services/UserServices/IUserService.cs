@@ -26,7 +26,6 @@ namespace OmegaStreamServices.Services.UserServices
 
                 Task<bool> SaveTheme(string? background, string? primaryColor, string? secondaryColor,
                      Stream? bannerImage, User user);
-                Task<(Stream file, string contentType)> GetBannerAsync(int avatarId);
                 Task DeleteAccount(string userId);
                 Task<List<string>> GetRoles(string userId);
                 Task VerifyUser(string userId);

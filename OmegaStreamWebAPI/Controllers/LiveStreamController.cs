@@ -21,33 +21,6 @@ namespace OmegaStreamWebAPI.Controllers
             _mapper = mapper;
         }
 
-        //[HttpPost("start")]
-        //[Authorize]
-        //public async Task<IActionResult> StartLiveStream([FromQuery] string streamTitle, [FromQuery] string? description)
-        //{
-        //    var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        //    if (userIdFromToken == null)
-        //    {
-        //        return Unauthorized();
-        //    }
-
-
-
-        //    var liveStreamId = Guid.NewGuid().ToString();
-        //    var liveStream = new LiveStream
-        //    {
-        //        Id = liveStreamId,
-        //        UserId = userIdFromToken,
-        //        StartedAt = DateTime.UtcNow,
-        //        StreamTitle = streamTitle,
-        //        Description = description == null ? string.Empty : description
-        //    };
-
-        //    await _liveStreamRepository.AddLiveStreamAsync(liveStream);
-
-        //    return Ok(new { StreamId = liveStreamId });
-        //}
-
         [HttpGet]
         public async Task<IActionResult> GetAllStream()
         {
@@ -70,19 +43,5 @@ namespace OmegaStreamWebAPI.Controllers
             return Ok(liveStreamDto);
         }
 
-        //[HttpPost("stop/{streamId}")]
-        //public async Task<IActionResult> StopLiveStream(string streamId)
-        //{
-        //    var liveStream = await _liveStreamRepository.GetLiveStreamByIdAsync(streamId);
-        //    if (liveStream == null)
-        //    {
-        //        return NotFound();
-        //    }
-
-        //    liveStream.EndedAt = DateTime.UtcNow;
-        //    await _liveStreamRepository.UpdateLiveStreamAsync(liveStream);
-
-        //    return Ok();
-        //}
     }
 }

@@ -327,7 +327,7 @@ namespace OmegaStreamWebAPI.Hubs
         public async Task AddVideoToPlaylist(string roomId, int videoId)
         {
             //var video = await _videoRepository.GetVideoWithInclude(videoId);
-            var video = _repo.FirstOrDefaultAsync<Video>(
+            var video = await _repo.FirstOrDefaultAsync<Video>(
                     x => x.Id == videoId,
                     include: x => x.Include(x => x.User)
                     .ThenInclude(x => x.Avatar)
