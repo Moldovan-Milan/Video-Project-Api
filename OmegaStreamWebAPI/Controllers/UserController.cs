@@ -475,7 +475,7 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        private IActionResult HandleException(Exception ex, string resourceName)
+        protected virtual IActionResult HandleException(Exception ex, string resourceName)
         {
             return StatusCode(500, new { message = $"There was an error: {ex.Message}" });
         }

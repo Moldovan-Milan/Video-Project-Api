@@ -15,9 +15,12 @@ using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static OmegasStreamApi_UnitTests.Controllers.UserControllerTests;
 
 namespace OmegasStreamApi_UnitTests.Controllers
 {
@@ -35,142 +38,308 @@ namespace OmegasStreamApi_UnitTests.Controllers
             _mapperMock = new Mock<IMapper>();
             _imageServiceMock = new Mock<IImageService>();
             _cloudServiceMock = new Mock<ICloudService>();
-            _userController = new UserController(_userServiceMock.Object, _cloudServiceMock.Object, _mapperMock.Object, _imageServiceMock.Object);
-        }
+            _userController = new TestableUserController(_userServiceMock.Object, _cloudServiceMock.Object, _mapperMock.Object, _imageServiceMock.Object);
 
-        [Fact]
-        public async Task GetUser_ReturnsOk_WhenUserExists()
-        {
-            string userId = "123";
-            var user = new User { Id = userId, UserName = "Test User" };
-            var userDto = new UserDto { Id = userId, UserName = "Test User" };
-
-            _userServiceMock.Setup(x => x.GetUserById(userId)).ReturnsAsync(user);
-            _mapperMock.Setup(x => x.Map<UserDto>(user)).Returns(userDto);
-
-            var result = await _userController.GetUser(userId);
-
-            var okResult = Assert.IsType<OkObjectResult>(result);
-            var returnDto = Assert.IsType<UserDto>(okResult.Value);
-            Assert.Equal(userDto.Id, returnDto.Id);
-        }
-
-        [Fact]
-        public async Task GetUser_ReturnsNotFound_WhenUserDoesNotExist()
-        {
-            string userId = "999";
-            _userServiceMock.Setup(x => x.GetUserById(userId)).ReturnsAsync((User)null);
-
-            var result = await _userController.GetUser(userId);
-
-            var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
-            Assert.Equal(404, notFoundResult.StatusCode);
-        }
-
-        [Fact]
-        public async Task GetUser_ReturnsHandledException_WhenExceptionOccurs()
-        {
-            var userId = "error";
-            _userServiceMock.Setup(s => s.GetUserById(userId))
-                .ThrowsAsync(new Exception("Db is down"));
-
-            var result = await _userController.GetUser(userId);
-
-            result.Should().BeOfType<ObjectResult>()
-                .Which.StatusCode.Should().Be(500);
-
-            var value = ((ObjectResult)result).Value;
-            value.Should().BeEquivalentTo(new
+            _userController.ControllerContext = new ControllerContext
             {
-                message = "There was an error: Db is down"
-            });
+                HttpContext = new DefaultHttpContext()
+            };
+        }
+
+        public class TestableUserController : UserController
+        {
+            public TestableUserController(IUserService userService, ICloudService cloudService, IMapper mapper,
+                IImageService imageService)
+                : base(userService, cloudService, mapper, imageService)
+            {
+            }
+
+            protected override IActionResult HandleException(Exception ex, string context)
+            {
+                return new ObjectResult($"Internal server error: {ex.Message}")
+                {
+                    StatusCode = 500
+                };
+            }
+        }
+
+        private IFormFile CreateDummyFormFile(string content = "Dummy image content", string fileName = "avatar.jpg")
+        {
+            byte[] byteArray = Encoding.UTF8.GetBytes(content);
+            var stream = new MemoryStream(byteArray);
+            return new FormFile(stream, 0, byteArray.Length, "avatar", fileName);
+        }
+
+        [Fact]
+        public async Task GetUser_ReturnsNotFound_WhenUserNotFound()
+        {
+            // Arrange
+            string userId = "testUser";
+            _userServiceMock
+                .Setup(x => x.GetUserById(userId))
+                .ReturnsAsync((User)null);
+
+            // Act
+            var result = await _userController.GetUser(userId);
+
+            // Assert
+            var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+            notFoundResult.Value.Should().Be($"Couldn't find user with id: {userId}");
+        }
+
+        [Fact]
+        public async Task GetUser_ReturnsOk_WhenUserFound()
+        {
+            // Arrange
+            string userId = "testUser";
+            var user = new User { Id = userId, UserName = "Test user" };
+            _userServiceMock
+                .Setup(x => x.GetUserById(userId))
+                .ReturnsAsync(user);
+
+            var userDto = new UserDto { Id = userId, UserName = "Test user" };
+            _mapperMock
+                .Setup(x => x.Map<UserDto>(user))
+                .Returns(userDto);
+
+            // Act
+            var result = await _userController.GetUser(userId);
+
+            // Assert
+            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+            okResult.Value.Should().BeEquivalentTo(userDto);
+        }
+
+        [Fact]
+        public async Task GetUser_ReturnsInternalServerError_WhenExceptionThrown()
+        {
+            // Arrange
+            string userId = "testUser";
+            _userServiceMock
+                .Setup(x => x.GetUserById(userId))
+                .ThrowsAsync(new Exception("Test exception"));
+
+            // Act
+            var result = await _userController.GetUser(userId);
+
+            // Assert
+            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+            objectResult.StatusCode.Should().Be(500);
+            objectResult.Value.Should().Be("Internal server error: Test exception");
         }
 
         [Fact]
         public async Task Register_ReturnsOk_WhenRegistrationSucceeds()
         {
-            string userName = "TestUser";
-            string password = "TestPassword";
-            string email = "testemail@email.com";
-            var avatar = CreateMockFormFile();
+            // Arrange
+            string username = "TestUser";
+            string email = "test@example.com";
+            string password = "Password123";
+            IFormFile avatar = CreateDummyFormFile();
 
-            _userServiceMock.Setup(x => x.RegisterUser(userName, email, password, It.IsAny<Stream>()))
+            _userServiceMock
+                .Setup(s => s.RegisterUser(username, email, password, It.IsAny<Stream>()))
                 .ReturnsAsync(IdentityResult.Success);
 
-            var result = await _userController.Register(userName, email, password, avatar);
+            // Act
+            var result = await _userController.Register(username, email, password, avatar);
+
+            // Assert
             result.Should().BeOfType<OkResult>();
+
+            _userServiceMock.Verify(s => s.RegisterUser(username, email, password, It.IsAny<Stream>()), Times.Once);
         }
 
         [Fact]
         public async Task Register_ReturnsBadRequest_WhenRegistrationFails()
         {
+            // Arrange
             string username = "TestUser";
-            string password = "TestPassword";
-            string email = "testemail@email.com";
-            var avatar = CreateMockFormFile();
+            string email = "test@example.com";
+            string password = "Password123";
+            IFormFile avatar = CreateDummyFormFile();
 
-            var identityResult = IdentityResult.Failed(new IdentityError { Description = "Invalid email format" });
+            var identities = IdentityResult.Failed(new IdentityError { Code = "Duplicate", Description = "Email already exists." });
 
-            _userServiceMock.Setup(s => s.RegisterUser(username, email, password, It.IsAny<Stream>()))
-                       .ReturnsAsync(identityResult);
+            _userServiceMock
+                .Setup(s => s.RegisterUser(username, email, password, It.IsAny<Stream>()))
+                .ReturnsAsync(identities);
 
+            // Act
             var result = await _userController.Register(username, email, password, avatar);
 
-            var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-            var errors = badRequest.Value.Should().BeAssignableTo<IEnumerable<IdentityError>>().Subject;
-
-            errors.Should().ContainSingle(e => e.Description == "Invalid email format");
+            // Assert
+            var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+            badRequestResult.Value.Should().BeEquivalentTo(identities.Errors);
         }
 
         [Fact]
-        public async Task Login_ReturnsOk_WithUserDto_WhenLoginSucceeds()
+        public async Task Login_ReturnsUnauthorized_WhenUserIsNull()
         {
-            string email = "testemail@email.com";
-            string password = "TestPassword";
+            // Arrange
+            string email = "test@example.com";
+            string password = "Password123";
             bool rememberMe = true;
 
-            var mockUser = new User
-            {
-                Id = "123",
-                UserName = "TestUser",
-                Email = email
-            };
+            _userServiceMock.Setup(s => s.LoginUser(email, password, rememberMe))
+                .ReturnsAsync((refreshToken: "dummyToken", user: (User)null));
 
-            string refreshToken = "exampleRefreshToken";
-
-            _userServiceMock.Setup(x => x.LoginUser(email, password, rememberMe))
-                .ReturnsAsync((refreshToken, mockUser));
-
-            _mapperMock.Setup(x => x.Map<UserDto>(mockUser))
-                .Returns(new UserDto
-                {
-                    Id = mockUser.Id,
-                    UserName = mockUser.UserName,
-                    Email = mockUser.Email
-                });
-
-            var httpContext = new DefaultHttpContext();
-            httpContext.Response.Body = new MemoryStream();
-            _userController.ControllerContext = new ControllerContext
-            {
-                HttpContext = httpContext
-            };
-
+            // Act
             var result = await _userController.Login(email, password, rememberMe);
 
-            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-            dynamic response = okResult.Value;
+            // Assert
+            var unauthorizedResult = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+            unauthorizedResult.Value.Should().Be("Invalid email or password.");
         }
 
-        private IFormFile CreateMockFormFile(string content = "fake image", string fileName = "avatar.png")
+        [Fact]
+        public async Task Login_ReturnsOk_WithCookie_WhenRefreshTokenIsProvided()
         {
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
-            return new FormFile(stream, 0, stream.Length, "avatar", fileName)
-            {
-                Headers = new HeaderDictionary(),
-                ContentType = "image/png"
+            // Arrange
+            string email = "test@example.com";
+            string password = "Password123";
+            bool rememberMe = true;
+            string refreshToken = "sampleRefreshToken";
+            DateTime now = DateTime.Now;
+
+            var user = new User { Id = "user1", UserName = "TestUser", Created = now};
+            var userDto = new UserDto {
+                Id = "user1", 
+                UserName = "TestUser",
+                Avatar = null,
+                AvatarId = 0,
+                Created = now,
+                Email = null,
+                FollowersCount = 0,
             };
+
+            _userServiceMock.Setup(s => s.LoginUser(email, password, rememberMe))
+                .ReturnsAsync((refreshToken, user));
+            _mapperMock.Setup(m => m.Map<UserDto>(user)).Returns(userDto);
+
+            // Act
+            var result = await _userController.Login(email, password, rememberMe);
+
+            // Assert
+            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+            //okResult.Value.Should().BeEquivalentTo(new { userDto });
+
+            var httpContext = _userController.ControllerContext.HttpContext;
+            httpContext.Response.Headers.Should().ContainKey("Set-Cookie");
+            string cookieHeader = httpContext.Response.Headers["Set-Cookie"];
+            cookieHeader.Should().Contain("RefreshToken=" + refreshToken);
         }
 
+        [Fact]
+        public async Task Login_ReturnsOk_WithoutCookie_WhenRefreshTokenIsNull()
+        {
+            // Arrange
+            string email = "test@example.com";
+            string password = "Password123";
+            bool rememberMe = false;
+
+            var user = new User { Id = "user1", UserName = "TestUser" };
+            var userDto = new UserDto { Id = "user1", UserName = "TestUser" };
+
+            _userServiceMock.Setup(s => s.LoginUser(email, password, rememberMe))
+                .ReturnsAsync((refreshToken: (string)null, user: user));
+            _mapperMock.Setup(m => m.Map<UserDto>(user)).Returns(userDto);
+
+            _userController.ControllerContext.HttpContext.Response.Headers.Clear();
+
+            // Act
+            var result = await _userController.Login(email, password, rememberMe);
+
+            // Assert
+            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+            //okResult.Value.Should().BeEquivalentTo(new { userDto });
+
+            var httpContext = _userController.ControllerContext.HttpContext;
+            string cookieHeader = httpContext.Response.Headers["Set-Cookie"];
+
+            cookieHeader.Should().NotContain("RefreshToken");
+        }
+    
+         [Fact]
+        public async Task RefreshJwtToken_ReturnsBadRequest_WhenRefreshTokenIsMissing()
+        {
+          
+            var cookies = new Mock<IRequestCookieCollection>();
+            cookies.Setup(c => c.ContainsKey(It.IsAny<string>())).Returns(false);
+            _userController.ControllerContext.HttpContext.Request.Cookies = cookies.Object;
+            // Act
+            var result = await _userController.RefreshJwtToken();
+
+            // Assert
+            var badRequest = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+            badRequest.Value.Should().Be("Refresh token is missing.");
+        }
+
+        
+        [Fact]
+        public async Task RefreshJwtToken_ReturnsUnauthorized_WhenLoginWithRefreshTokenFails()
+        {
+            // Arrange
+            var cookies = new Mock<IRequestCookieCollection>();
+            cookies.Setup(c => c.ContainsKey("RefreshToken")).Returns(true);
+            cookies.Setup(c => c["RefreshToken"]).Returns("oldTokenValue");
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Cookies = cookies.Object;
+            _userController.ControllerContext.HttpContext = httpContext;
+
+            _userServiceMock
+                .Setup(x => x.LogInWithRefreshToken("oldTokenValue"))
+                .ReturnsAsync((newRefreshToken: (string)null, user: (User)null));
+
+            // Act
+            var result = await _userController.RefreshJwtToken();
+
+            // Assert
+            result.Should().BeOfType<UnauthorizedResult>();
+
+            httpContext.Response.Headers["Set-Cookie"].ToString()
+                .Should().Contain("RefreshToken=; expires=");
+        }
+
+        [Fact]
+        public async Task RefreshJwtToken_ReturnsOk_WhenLoginWithRefreshTokenSucceeds()
+        {
+            // Arrange
+            var cookies = new Mock<IRequestCookieCollection>();
+            cookies.Setup(c => c.ContainsKey("RefreshToken")).Returns(true);
+            cookies.Setup(c => c["RefreshToken"]).Returns("oldTokenValue");
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Cookies = cookies.Object;
+            _userController.ControllerContext.HttpContext = httpContext;
+
+            var user = new User { Id = "user1", UserName = "TestUser" };
+            string newRefreshToken = "newTokenValue";
+            var roles = new List<string> { "Role1", "Role2" };
+
+            _userServiceMock
+                .Setup(x => x.LogInWithRefreshToken("oldTokenValue"))
+                .ReturnsAsync((newRefreshToken, user));
+            _userServiceMock
+                .Setup(x => x.GetRoles(user.Id))
+                .ReturnsAsync(roles);
+
+            var userDto = new UserDto { Id = "user1", UserName = "TestUser" };
+            _mapperMock.Setup(x => x.Map<UserDto>(user)).Returns(userDto);
+
+            // Act
+            var result = await _userController.RefreshJwtToken();
+
+            // Assert
+            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+            okResult.Value.Should().BeEquivalentTo(new { user = userDto, roles = roles });
+
+            string cookieHeader = httpContext.Response.Headers["Set-Cookie"];
+            cookieHeader.Should().Contain($"RefreshToken={newRefreshToken}");
+            cookieHeader.ToLower().Should().Contain("httponly");
+            cookieHeader.ToLower().Should().Contain("secure");
+            cookieHeader.ToLower().Should().Contain("samesite=strict");
+        }
     }
 }

@@ -50,7 +50,7 @@ public class UserService : IUserService
         if (_userManager.FindByEmailAsync(email) != null)
             return IdentityResult.Failed(new IdentityError
             {
-                Code = "Email error",
+                Code = "Duplicate",
                 Description = "Email already exist."
             });
 
