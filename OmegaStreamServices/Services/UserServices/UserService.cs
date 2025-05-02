@@ -20,9 +20,7 @@ public class UserService : IUserService
     private readonly AppDbContext _context;
     private readonly IImageService _imageService;
     private readonly IVideoManagementService _videoManagementService;
-
-   private readonly IRefreshTokenRepository _refreshTokenRepository;
-
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ICloudService _cloudService;
 
 
@@ -48,6 +46,13 @@ public class UserService : IUserService
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
+
+        if (_userManager.FindByEmailAsync(email) != null)
+            return IdentityResult.Failed(new IdentityError
+            {
+                Code = "Email error",
+                Description = "Email already exist."
+            });
 
         string avatarFileName = await _imageService.SaveImage("images/avatars", avatar);
         //var avatarImage = await _imageRepository.FindImageByPath(avatarFileName);

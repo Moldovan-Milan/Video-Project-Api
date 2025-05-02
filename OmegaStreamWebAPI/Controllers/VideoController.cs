@@ -148,6 +148,7 @@ namespace OmegaStreamWebAPI.Controllers
                 return HandleException(ex, "user like and subscribe");
             }
         }
+
         [Route("is-user-subscribed/{followedId}")]
         [HttpGet]
         [Authorize]
@@ -216,20 +217,6 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        //[HttpGet("thumbnail/{imageId}")]
-        //public async Task<IActionResult> GetThumbnailImage(int imageId)
-        //{
-        //    _logger.LogInformation("Fetching thumbnail image for ID: {ImageId}", imageId);
-        //    try
-        //    {
-        //        var (imageStream, contentType) = await _videoStreamService.GetThumbnailStreamAsync(imageId).ConfigureAwait(false);
-        //        return File(imageStream, contentType);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return HandleException(ex, "thumbnail");
-        //    }
-        //}
 
         [HttpGet("search/{searchString}")]
         public async Task<IActionResult> Search(string searchString, [FromQuery] int? pageNumber, [FromQuery] int? pageSize)
@@ -584,7 +571,7 @@ namespace OmegaStreamWebAPI.Controllers
 
         #endregion
 
-        private IActionResult HandleException(Exception ex, string resourceName)
+        protected virtual IActionResult HandleException(Exception ex, string resourceName)
         {
             if (ex is AmazonS3Exception amazonS3Ex)
             {

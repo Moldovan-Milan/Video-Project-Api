@@ -160,13 +160,6 @@ namespace OmegasStreamApi_UnitTests.Controllers
 
             var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
             dynamic response = okResult.Value;
-
-            //UserDto userDto = response.userDto;
-            //userDto.Email.Should().Be(mockUser.Email);
-            //userDto.Id.Should().Be(mockUser.Id);
-            //userDto.UserName.Should().Be(mockUser.UserName);
-
-            //httpContext.Verify(ctx => ctx.Response.Cookies.Append("RefreshToken", refreshToken, It.IsAny<CookieOptions>()), Times.Once);
         }
 
         private IFormFile CreateMockFormFile(string content = "fake image", string fileName = "avatar.png")
