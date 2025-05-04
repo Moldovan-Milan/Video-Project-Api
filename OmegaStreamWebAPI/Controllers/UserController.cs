@@ -481,7 +481,7 @@ namespace OmegaStreamWebAPI.Controllers
         [Route("change-avatar")]
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> ChangeAvatar(IFormFile avatar)
+        public async Task<IActionResult> ChangeAvatar([FromForm] IFormFile avatar)
         {
             try
             {
