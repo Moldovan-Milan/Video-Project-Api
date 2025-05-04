@@ -67,11 +67,6 @@ public class UserService : IUserService
 
         var result = await _userManager.CreateAsync(user, password);
 
-        if (result.Succeeded)
-        {
-            await _userManager.AddToRoleAsync(user, "User");
-        }
-
         return result;
 
     }

@@ -197,7 +197,7 @@ namespace OmegaStreamWebAPI
             var scope = app.Services.CreateScope();
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-            string[] roles = { "Admin", "Verified", "User" };
+            string[] roles = { "Admin", "Verified" };
             foreach (var role in roles)
             {
                 if (!roleManager.RoleExistsAsync(role).Result)
@@ -210,7 +210,6 @@ namespace OmegaStreamWebAPI
             var user = userManager.FindByEmailAsync("admin@omegastream.com").Result;
             if (user != null)
             {
-                userManager.AddToRoleAsync(user, "User").Wait();
                 userManager.AddToRoleAsync(user, "Verified").Wait();
                 userManager.AddToRoleAsync(user, "Admin").Wait();
             }
