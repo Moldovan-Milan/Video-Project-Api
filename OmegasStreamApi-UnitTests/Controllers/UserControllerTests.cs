@@ -3,24 +3,13 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Server.HttpSys;
-using Microsoft.VisualStudio.TestPlatform.CommunicationUtilities;
 using Moq;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
 using OmegaStreamServices.Services;
 using OmegaStreamServices.Services.UserServices;
 using OmegaStreamWebAPI.Controllers;
-using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
 using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using static OmegasStreamApi_UnitTests.Controllers.UserControllerTests;
 
 namespace OmegasStreamApi_UnitTests.Controllers
 {
@@ -174,7 +163,7 @@ namespace OmegasStreamApi_UnitTests.Controllers
         }
 
         [Fact]
-        public async Task Login_ReturnsUnauthorized_WhenUserIsNull()
+        public async Task Login_ReturnsForbid_WhenUserIsNull()
         {
             // Arrange
             string email = "test@example.com";

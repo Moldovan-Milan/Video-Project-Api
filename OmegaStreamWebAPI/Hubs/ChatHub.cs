@@ -74,19 +74,19 @@ namespace OmegaStreamWebAPI.Hubs
                 SentAt = DateTime.UtcNow
             };
 
-            string jsonMessage = JsonConvert.SerializeObject(chatMessage, new JsonSerializerSettings
-            {
-                ContractResolver = new CamelCasePropertyNamesContractResolver()
-            });
+            //string jsonMessage = JsonConvert.SerializeObject(chatMessage, new JsonSerializerSettings
+            //{
+            //    ContractResolver = new CamelCasePropertyNamesContractResolver()
+            //});
 
             if (_connectedUsers.TryGetValue(senderId, out string senderConnectionId))
             {
-                await Clients.Client(senderConnectionId).SendAsync("ReceiveMessage", jsonMessage);
+                await Clients.Client(senderConnectionId).SendAsync("ReceiveMessage", chatMessage);
             }
 
             if (_connectedUsers.TryGetValue(recipientId, out string recipientConnectionId))
             {
-                await Clients.Client(recipientConnectionId).SendAsync("ReceiveMessage", jsonMessage);
+                await Clients.Client(recipientConnectionId).SendAsync("ReceiveMessage", chatMessage);
             }
 
             chatMessage.Content = _encryptionHelper.Encrypt(content);
@@ -108,11 +108,6 @@ namespace OmegaStreamWebAPI.Hubs
             }
 
             var chatMessages = await _repo.GetAllAsync<ChatMessage>(m => m.UserChatId == chatId);
-            //if (chatMessages == null || !chatMessages.Any())
-            //{
-            //    throw new HubException("No messages found for this chat.");
-            //}
-            
 
             chatMessages = chatMessages.Select(msg =>
             {

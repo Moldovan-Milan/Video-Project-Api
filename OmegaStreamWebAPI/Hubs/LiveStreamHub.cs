@@ -32,7 +32,7 @@ namespace OmegaStreamWebAPI.Hubs
                 return;
             }
 
-            User? user = await _userManager.FindByIdAsync(userId);
+            User? user = await _userManager.Users.Include(x => x.Avatar).FirstOrDefaultAsync(x => x.Id == userId);
             if (user == null)
             {
                 await SendErrorMessage(Context.ConnectionId, "User not found");

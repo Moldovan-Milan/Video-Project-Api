@@ -22,6 +22,9 @@ public class UserService : IUserService
     private readonly IVideoManagementService _videoManagementService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ICloudService _cloudService;
+    private readonly string avatarPath;
+    private readonly string bannerPath;
+    private readonly IConfiguration _config;
 
 
     public UserService(UserManager<User> userManager,
@@ -29,7 +32,8 @@ public class UserService : IUserService
         IMapper mapper,
         AppDbContext context,
          ICloudService cloudService, IImageService imageService,
-        IVideoManagementService videoManagementService, IRefreshTokenRepository refreshTokenRepository, IGenericRepository repo)
+        IVideoManagementService videoManagementService, IRefreshTokenRepository refreshTokenRepository, IGenericRepository repo,
+        IConfiguration config)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -42,12 +46,15 @@ public class UserService : IUserService
 
         _repo = repo;
         _refreshTokenRepository = refreshTokenRepository;
+        _config = config;
+        avatarPath = _config["CloudService:AvatarPath"];
+        bannerPath = _config["CloudService:BannerPath"];
     }
 
     public async Task<IdentityResult> RegisterUser(string username, string email, string password, Stream avatar)
     {
 
-        if (_userManager.FindByEmailAsync(email) != null)
+        if (await _userManager.Users.AnyAsync(x => x.Email == email))
             return IdentityResult.Failed(new IdentityError
             {
                 Code = "Duplicate",
@@ -258,7 +265,7 @@ public class UserService : IUserService
 
     private async Task<string> SaveBanner(Stream bannerStream)
     {
-        return await _imageService.SaveImage("images/banners", bannerStream);
+        return await _imageService.SaveImage(bannerPath, bannerStream);
     }
 
     public async Task DeleteAccount(string userId)
@@ -430,5 +437,20 @@ public class UserService : IUserService
             throw new Exception("User not found");
         }
         return user.IsVerificationRequested;
+    }
+
+    public async Task<bool> ChangeAvatar(Stream avatar, string userId)
+    {
+        User? user = await _userManager.Users.Include(x => x.Avatar)
+            .FirstOrDefaultAsync(x => x.Id == userId);
+        if (user == null)
+        {
+            return false;
+        }
+        if (await _imageService.ReplaceImage(avatarPath, user.Avatar.Path, avatar))
+        {
+            return true;
+        }
+        return false;
     }
 }

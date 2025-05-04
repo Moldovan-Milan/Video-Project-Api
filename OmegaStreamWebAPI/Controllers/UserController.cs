@@ -18,15 +18,18 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IUserService _userService;
         private readonly IImageService _imageService;
         private readonly IMapper _mapper;
+        private readonly IConfiguration _config;
 
 
 
         public UserController(IUserService userService, ICloudService cloudService,
-            IMapper mapper, IImageService imageService)
+            IMapper mapper, IImageService imageService, IConfiguration config)
         {
             _userService = userService;
             _mapper = mapper;
             _imageService = imageService;
+            _config = config;
+
         }
 
         [HttpGet("{userId}")]
@@ -473,6 +476,31 @@ namespace OmegaStreamWebAPI.Controllers
             {
                 return HandleException(ex, "verification-request/active");
             }
+        }
+
+        [Route("change-avatar")]
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> ChangeAvatar(IFormFile avatar)
+        {
+            try
+            {
+                var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userIdFromToken == null)
+                {
+                    return Unauthorized("You are not logged in!");
+                }
+                if (! await _userService.ChangeAvatar(avatar.OpenReadStream(), userIdFromToken))
+                {
+                    return BadRequest("An error happened.");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                return HandleException(ex, "avatar-change");
+            }
+            return Ok();
         }
 
         protected virtual IActionResult HandleException(Exception ex, string resourceName)

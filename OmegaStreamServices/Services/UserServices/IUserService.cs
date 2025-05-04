@@ -33,5 +33,6 @@ namespace OmegaStreamServices.Services.UserServices
                 Task<List<UserDto>> GetVerificationRequests(int? pageNumber, int? pageSize);
                 Task DeclineVerification(string userId);
                 Task<bool> HasActiveVerificationRequest(string userId);
+                Task<bool> ChangeAvatar(Stream avatar, string userId);
     }
 }
