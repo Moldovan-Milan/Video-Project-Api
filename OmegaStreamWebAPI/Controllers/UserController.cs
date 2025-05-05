@@ -475,10 +475,10 @@ namespace OmegaStreamWebAPI.Controllers
             }
         }
 
-        [Route("change-avatar")]
+        [Route("change-avatar/{userId}")]
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> ChangeAvatar([FromForm] IFormFile avatar)
+        public async Task<IActionResult> ChangeAvatar([FromForm] IFormFile avatar, [FromRoute] string? userId)
         {
             try
             {
@@ -487,7 +487,16 @@ namespace OmegaStreamWebAPI.Controllers
                 {
                     return Unauthorized("You are not logged in!");
                 }
-                if (! await _userService.ChangeAvatar(avatar.OpenReadStream(), userIdFromToken))
+                if(userId == null)
+                {
+                    userId = userIdFromToken;
+                }
+                var roles = await _userService.GetRoles(userIdFromToken);
+                if(userId != userIdFromToken && !roles.Contains("Admin"))
+                {
+                    return Forbid("You are not authorized to change this user's avatar");
+                }
+                if (! await _userService.ChangeAvatar(avatar.OpenReadStream(), userId))
                 {
                     return BadRequest("An error happened.");
                 }
