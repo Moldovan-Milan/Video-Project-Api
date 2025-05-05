@@ -192,10 +192,10 @@ namespace OmegaStreamWebAPI.Hubs
             switch (result)
             {
                 case RoomStateResult.Accepted:
-                    await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    await Clients.Group(roomId).SendAsync("LeftRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                     break;
                 case RoomStateResult.HostLeft:
-                    await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(roomState.Members));
+                    await Clients.Group(roomId).SendAsync("LeftRoom", _mapper.Map<List<UserDto>>(roomState.Members));
                     await Clients.Group(roomId).SendAsync("RoomClosed");
                     break;
                 case RoomStateResult.RoomClosed:
@@ -309,7 +309,7 @@ namespace OmegaStreamWebAPI.Hubs
             if (_roomManager.BanUser(roomId, user.Id, out string connId, out var members))
             {
                 await Clients.Client(connId).SendAsync("YouAreBanned");
-                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+                await Clients.Group(roomId).SendAsync("LeftRoom", _mapper.Map<List<UserDto>>(members));
             }
         }
 
@@ -455,7 +455,7 @@ namespace OmegaStreamWebAPI.Hubs
             }
             else if (result == RoomStateResult.Accepted)
             {
-                await Clients.Group(roomId).SendAsync("LeavedRoom", _mapper.Map<List<UserDto>>(members));
+                await Clients.Group(roomId).SendAsync("LeftRoom", _mapper.Map<List<UserDto>>(members));
             }
             else if (result == RoomStateResult.Failed)
             {

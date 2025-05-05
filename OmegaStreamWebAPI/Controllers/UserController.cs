@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using OmegaStreamServices.Dto;
 using OmegaStreamServices.Models;
-using OmegaStreamServices.Services.Repositories;
 using OmegaStreamServices.Services;
 using System.Security.Claims;
 using AutoMapper;
@@ -18,17 +17,15 @@ namespace OmegaStreamWebAPI.Controllers
         private readonly IUserService _userService;
         private readonly IImageService _imageService;
         private readonly IMapper _mapper;
-        private readonly IConfiguration _config;
 
 
 
         public UserController(IUserService userService, ICloudService cloudService,
-            IMapper mapper, IImageService imageService, IConfiguration config)
+            IMapper mapper, IImageService imageService)
         {
             _userService = userService;
             _mapper = mapper;
-            _imageService = imageService;
-            _config = config;
+            _imageService = imageService;;
 
         }
 
