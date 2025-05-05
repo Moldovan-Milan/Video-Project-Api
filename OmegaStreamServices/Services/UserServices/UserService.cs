@@ -225,7 +225,7 @@ public class UserService : IUserService
                     var existingImage = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == userTheme.BannerId.Value);
                     if (existingImage != null)
                     {
-                        if (!await _imageService.ReplaceImage("images/banners", existingImage.Path, bannerImage))
+                        if (!await _imageService.ReplaceImage(bannerPath, existingImage.Path, bannerImage))
                         {
                             return false;
                         }
@@ -295,18 +295,36 @@ public class UserService : IUserService
                 await _repo.DeleteMultipleAsync<ChatMessage>(x => chats.Select(c => c.Id).Contains(x.UserChatId));
                 await _repo.DeleteMultipleAsync<UserChats>(x => x.User1Id == userId || x.User2Id == userId);
 
-
                 if (user.Avatar != null && user.Avatar.Path != "default_avatar")
                 {
                     try
                     {
                         var avatar = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == user.AvatarId);
-                        await _cloudService.DeleteFileAsync($"images/avatars/{user.Avatar.Path}.{user.Avatar.Extension}");
+                        await _cloudService.DeleteFileAsync($"{avatarPath}/{user.Avatar.Path}.{user.Avatar.Extension}");
                         await _repo.DeleteAsync<Image>(avatar);
                     }
                     catch (Exception ex)
                     {
                         Console.WriteLine($"Warning: Failed to delete user avatar. Error: {ex.Message}");
+                    }
+                }
+
+                if(user.UserTheme != null)
+                {
+                    try
+                    {
+                        var userTheme = await _repo.FirstOrDefaultAsync<UserTheme>(x => x.Id == user.UserThemeId);
+                        if (userTheme.BannerId != null)
+                        {
+                            var banner = await _repo.FirstOrDefaultAsync<Image>(x => x.Id == userTheme.BannerId);
+                            await _cloudService.DeleteFileAsync($"{bannerPath}/{banner.Path}.{banner.Extension}");
+                            await _repo.DeleteAsync<Image>(banner);
+                        }
+                        await _repo.DeleteAsync<UserTheme>(userTheme);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Warning: Failed to delete user theme. Error: {ex.Message}");
                     }
                 }
 
